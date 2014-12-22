@@ -77,6 +77,8 @@ void CrossLoopRedundancy::InitializePureFunctionSet()
 {
 	this->setPureFunctions.insert("floor_log2");
 	this->setPureFunctions.insert("exact_log2");
+	this->setPureFunctions.insert("_ZSt18_Rb_tree_incrementPSt18_Rb_tree_node_base");
+
 }
 
 void CrossLoopRedundancy::InitializeMemoryAllocFunctionSet()
@@ -84,6 +86,15 @@ void CrossLoopRedundancy::InitializeMemoryAllocFunctionSet()
 	this->setMemoryAllocFunctions.insert("ggc_alloc");
 	this->setMemoryAllocFunctions.insert("malloc");
 	this->setMemoryAllocFunctions.insert("xcalloc");
+}
+
+void CrossLoopRedundancy::InitializeFileIOFunctionSet()
+{
+	this->setFileIO.insert("fwrite");
+	this->setFileIO.insert("fputc");
+	this->setFileIO.insert("fflush");
+	this->setFileIO.insert("fopen");
+	this->setFileIO.insert("fclose");
 }
 
 
@@ -95,6 +106,7 @@ void CrossLoopRedundancy::CollectSideEffectInstruction(Loop * pLoop, set<Instruc
 
 	for( Loop::block_iterator BB = pLoop->block_begin(); BB != pLoop->block_end(); ++ BB )
 	{
+		
 		setBlocksInLoop.insert(*BB);
 		for(BasicBlock::iterator II = (*BB)->begin() ; II != (*BB)->end(); ++ II)
 		{
@@ -247,6 +259,17 @@ void CrossLoopRedundancy::CollectSideEffectInstruction(Loop * pLoop, set<Instruc
 			}
 		}
 	}
+
+/*
+	set<Instruction *>::iterator itSetInstBegin = setSideEffectInsts.begin();
+	set<Instruction *>::iterator itSetInstEnd   = setSideEffectInsts.end();
+
+	for(; itSetInstBegin != itSetInstEnd; itSetInstBegin ++ )
+	{
+		(*itSetInstBegin)->dump();
+	}
+
+*/
 }
 
 
@@ -256,14 +279,12 @@ void CrossLoopRedundancy::LoopDependenceAnalysis(Loop * pLoop, set<Value *> & se
 	set<Instruction *> setInstruction;
 	CollectSideEffectInstruction(pLoop, setInstruction);
 
-	errs() << pCurrentFunction->getName() << "\n";
+	//errs() << pCurrentFunction->getName() << "\n";
 	//PostDominatorTree * PDT = &getAnalysis<PostDominatorTree>(*pCurrentFunction);
 
 	ControlDependenceGraphBase CDG;
 	CDG.graphForFunction(*pCurrentFunction, *PDT);
-	pLoop->dump();
 	
-
 	set<BasicBlock *> setBlocksInLoop;
 
 	for( Loop::block_iterator BB = pLoop->block_begin(); BB != pLoop->block_end(); ++ BB )
@@ -271,7 +292,7 @@ void CrossLoopRedundancy::LoopDependenceAnalysis(Loop * pLoop, set<Value *> & se
 		setBlocksInLoop.insert(*BB);
 	}
 
-	errs() << "Here\n";
+	//errs() << "Here\n";
 	set<Instruction *>::iterator itSetInstBegin = setInstruction.begin();
 	set<Instruction *>::iterator itSetInstEnd   = setInstruction.end();
 
@@ -301,6 +322,7 @@ void CrossLoopRedundancy::LoopDependenceAnalysis(Loop * pLoop, set<Value *> & se
 						{
 							if(setProcessedValue.find(pBranch->getCondition()) == setProcessedValue.end() )
 							{
+
 								setProcessedValue.insert(pBranch->getCondition());
 								vecDependingValue.push_back(pBranch->getCondition());
 							}
@@ -331,6 +353,9 @@ void CrossLoopRedundancy::LoopDependenceAnalysis(Loop * pLoop, set<Value *> & se
 				vecDependingValue.push_back(*itVecValueBegin);
 			}
 		}
+
+		
+
 
 		while(vecDependingValue.size() > 0)
 		{
@@ -385,6 +410,7 @@ void CrossLoopRedundancy::LoopDependenceAnalysis(Loop * pLoop, set<Value *> & se
 
 				vecTmp.clear();
 				GetDependingValue(pInstruction, vecTmp);
+
 				itVecValueBegin = vecTmp.begin();
 				itVecValueEnd = vecTmp.end();
 
@@ -411,6 +437,11 @@ void CrossLoopRedundancy::LoopDependenceAnalysis(Loop * pLoop, set<Value *> & se
 
 bool CrossLoopRedundancy::runOnModule(Module& M)
 {
+
+	InitializePureFunctionSet();
+	InitializeMemoryAllocFunctionSet();
+	InitializeFileIOFunctionSet();
+
 	this->pDL = &getAnalysis<DataLayout>();
 
 	Function * pInnerFunction = SearchFunctionByName(M, strInnerFileName, strInnerFuncName, uInnerSrcLine);
@@ -423,6 +454,7 @@ bool CrossLoopRedundancy::runOnModule(Module& M)
 	PostDominatorTree * PDT = &getAnalysis<PostDominatorTree>(*pInnerFunction);
 	LoopInfo * pInnerLI = &(getAnalysis<LoopInfo>(*pInnerFunction));
 	Loop * pInnerLoop = SearchLoopByLineNo(pInnerFunction, pInnerLI, uInnerSrcLine);
+	pInnerLoop->dump();
 	if(pInnerLoop == NULL)
 	{
 		errs() << "Cannot find the inner loop!\n";
@@ -445,10 +477,28 @@ bool CrossLoopRedundancy::runOnModule(Module& M)
 				assert(Node->getNumOperands() == 1);
 				ConstantInt *CI = dyn_cast<ConstantInt>(Node->getOperand(0));
 				assert(CI);
-				errs() << CI->getZExtValue() << ":";
+				errs() << "Inst " << CI->getZExtValue() << ":";
 			}
 
 			pInst->dump();
+		}
+		else if(Argument * pArg = dyn_cast<Argument>(*itSetBegin))
+		{
+			Function * pFunction = pArg->getParent();
+			MDNode *Node = pFunction->begin()->begin()->getMetadata("func_id");
+			if(Node!=NULL)
+			{
+				assert(Node->getNumOperands() == 1);
+				ConstantInt *CI = dyn_cast<ConstantInt>(Node->getOperand(0));
+				assert(CI);
+				errs() << "Func " << pFunction->getName() << " " << CI->getZExtValue() << " " << pArg->getArgNo() << ": ";
+			}
+
+			pArg->dump();
+		}
+		else
+		{	
+			(*itSetBegin)->dump();
 		}
 	}
 
