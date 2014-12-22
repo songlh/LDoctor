@@ -24,18 +24,17 @@ struct CrossLoopRedundancy : public ModulePass
 //confirmed
 	void InitializePureFunctionSet();
 	void InitializeMemoryAllocFunctionSet();
+	void InitializeFileIOFunctionSet();
 
-
+	
 	void LoopDependenceAnalysis(Loop * pLoop, set<Value *> & setDependentValue, PostDominatorTree * PDT);
-
-
 	void CollectSideEffectInstruction(Loop * pLoop, set<Instruction *> & setSideEffectInst);
 
 
 private:
 	set<string> setPureFunctions;
 	set<string> setMemoryAllocFunctions;
-
+	set<string> setFileIO;
 	DataLayout * pDL;
 
 };

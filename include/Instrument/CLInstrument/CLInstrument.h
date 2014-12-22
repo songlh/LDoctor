@@ -31,7 +31,7 @@ struct CrossLoopInstrument : public ModulePass
 	void CreateIfElseIfBlock(Loop * pInnerLoop, BasicBlock * pPostDominator, vector<BasicBlock *> & vecCondition);
 	void CloneInnerLoop(Loop * pLoop, BasicBlock * pPostDominator, vector<BasicBlock *> & vecAdd, ValueToValueMapTy & VMap);
 	void RemapInstruction(Instruction *I, ValueToValueMapTy &VMap);
-	void ParseMonitoredInstFile(string & sFileName);
+	void ParseMonitoredInstFile(string & sFileName, Module * pModule);
 	void CollectInstrumentedInst(set<int> & setIndex, Loop * pLoop, vector<LoadInst *> & vecLoad, vector<Instruction *> & vecOut );
 	void AddHooksToInnerLoop(vector<BasicBlock *> & vecAdd, ValueToValueMapTy & VMap, vector<LoadInst *> & vecLoad, vector<Instruction *> & vecOut);
 
@@ -39,12 +39,18 @@ struct CrossLoopInstrument : public ModulePass
 	void InstrumentOuterLoop(Loop * pLoop);
 	void InstrumentMain(Module * pModule);
 
+	void InlineHookPara(Argument * pArg, Instruction * II);
 	void InlineHookDelimit(Instruction * II);
 	void InlineHookInst(Instruction * pI, Instruction * II);
 	void InlineHookLoad(LoadInst * pLoad);
 
 //	
 	set<int> setInstIndex;
+	vector<pair<Function *, int> > vecParaIndex;
+	bool bGivenOuterLoop;
+
+//
+	Loop * pOuterLoop;
 
 //type
 	IntegerType *CharType ;
@@ -62,12 +68,13 @@ struct CrossLoopInstrument : public ModulePass
 	StructType * struct_stParaRecord;
 	StructType * struct_stDelimiterRecord;
 	StructType * struct_stLogRecord;
-	StructType * union_anon;
+	StructType * union_anon_CPI;
 
 //constants
 	ConstantInt * ConstantInt0;
 	ConstantInt * ConstantInt1;
 	ConstantInt * ConstantInt2;
+	ConstantInt * ConstantInt3;
 	ConstantInt * ConstantInt4;
 	ConstantInt * ConstantInt10;
 	ConstantInt * ConstantInt32;
