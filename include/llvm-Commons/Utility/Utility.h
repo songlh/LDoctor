@@ -3,24 +3,37 @@
 
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/PostDominators.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/IntrinsicInst.h"
 
 
 #include <set>
 
+using namespace std;
+using namespace llvm;
+
 namespace llvm_Commons
 {
 
-typedef std::pair<llvm::BasicBlock *, llvm::BasicBlock *> Edge;
+typedef pair<BasicBlock *, BasicBlock *> Edge;
 
 //search exit edges for a given loop
-void SearchExitEdgesForLoop( std::set< Edge > & setExitEdges, llvm::Loop * pLoop );
+void SearchExitEdgesForLoop( set< Edge > & setExitEdges, Loop * pLoop );
+
+//search exit edges for a bunch of blocks
+void SearchExitEdgesForBlocks( set<Edge> & setExitEdges, set<BasicBlock *> & setBlocks);
 
 //search post dominator for a given loop
-llvm::BasicBlock * SearchPostHeader(std::set< Edge > & , llvm::PostDominatorTree * );
+BasicBlock * SearchPostHeader(set< Edge > & , PostDominatorTree * );
 
 //search two types of blocks for a given loop
-void Search2TypeBlocksInLoop(std::vector<llvm::BasicBlock *> & , std::vector<llvm::BasicBlock *> &, 
-							llvm::Loop *, llvm::Function *, llvm::PostDominatorTree *, llvm::DominatorTree * );
+void Search2TypeBlocksInLoop(vector<BasicBlock *> & , vector<BasicBlock *> &, 
+							Loop *, Function *, PostDominatorTree *, DominatorTree * );
+
+void Search2TypeBlocksInLoop(set<BasicBlock *> &, set<BasicBlock *> &, Loop *, Function *, PostDominatorTree *, DominatorTree *);
+
+bool PureIntrinsic(llvm::IntrinsicInst * II);
 
 }
 

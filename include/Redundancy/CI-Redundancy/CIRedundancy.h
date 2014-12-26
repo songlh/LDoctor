@@ -39,18 +39,15 @@ private:
 	void InitializeMemoryAllocFunctionSet();
 	void BuildCallerCalleeMapping(Function * pFunction);
 
-
-
 	//InfeasiblePath
 	void DependenceAnalysisInfeasiblePath(Function * pFunction);
-
-	
 
 
 	//top-down
 	void IntraProcedureDependenceAnalysis(Function * pFunction);
 	void BottomUpDependenceAnalysis(Function * pFunction);
-	void TopDownDependenceAnalysis();
+	void TopDownDependenceAnalysis(Function * pFunction);
+
 
 
 	//
@@ -72,11 +69,12 @@ private:
 	//confirmed
 	map<Function *, set<Function *> > CallerCalleeMapping;
 	map<Function *, set<Instruction *> > CallerCallSiteMapping;
+	
+	map<Function *, set<Function *> >    CalleeCallerMapping;
 	map<Function *, set<Instruction *> > CalleeCallSiteMapping;
 
 	map<LoadInst *, MemoryObjectType> LoadTypeMapping;
 	map<MemTransferInst *, pair<MemoryObjectType, MemoryObjectType> > MemTypeMapping;
-
 
 	map<Function *, map<LoadInst *, MemoryObjectType> > FuncLoadTypeMapping;
 	map<Function *, map<MemTransferInst *, pair<MemoryObjectType, MemoryObjectType> > > FuncMemTypeMapping;
@@ -84,6 +82,8 @@ private:
 	//load and memintrisc dependence
 	map<LoadInst *, set<Instruction *> > LoadDependentInstMapping;
 	map<MemTransferInst *, set<Instruction *> > MemInstDependentInstMapping;
+
+
 
 	//scope invariant global mapping
 	//map<set<Function *>, set<Value *> > ScopeInvariantValueMapping;
@@ -96,11 +96,14 @@ private:
 	map<Value *, set<Value *> > ValueDependenceMapping;
 	map<Value *, set<Value *> > DependenceValueMapping;
 
+
 	//top-down
 	map<Function *, map<Instruction *, set<Value *> > > FuncValueDependenceMappingMapping;
 	map<Function *, map<Instruction *, set<Instruction *> > > FuncDependenceValueMappingMapping;
 	map<Function *, map<Instruction *, set<Instruction *> > > FuncInstProcessedInstMappingMapping;
 	map<Function *, map<Instruction *, set<Value *> > >  FuncCallSiteCDependenceMappingMapping;
+
+	map<Function *, map<Argument *, set<Value * > > > FuncArgDependenceMappingMapping;
 
 private:
 	//PostDominatorTree * pPDT;
