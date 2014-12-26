@@ -182,11 +182,13 @@ void AddIntraDependence(Instruction * pValue, Value * pDependence, set<Instructi
 			return;
 		}
 
+/*
 		if(DependenceValueMapping.find(pInstruction) == DependenceValueMapping.end())
 		{
 			set<Instruction *> setValueInst;
 			DependenceValueMapping[pInstruction] = setValueInst;
 		}
+*/
 
 		DependenceValueMapping[pInstruction].insert(pValue);
 		setProcessedInst.insert(pInstruction);
@@ -205,13 +207,13 @@ void AddInterDependence(Value * pValue, Value * pDependence, set<Value *> & setP
 		{
 			return;
 		}
-
+/*
 		if(DependenceValueMapping.find(pInstruction) == DependenceValueMapping.end())
 		{
 			set<Value *> setValue;
 			DependenceValueMapping[pInstruction] = setValue;
 		}
-
+*/
 		DependenceValueMapping[pInstruction].insert(pValue);
 		setProcessedInst.insert(pInstruction);
 	}
@@ -221,13 +223,13 @@ void AddInterDependence(Value * pValue, Value * pDependence, set<Value *> & setP
 		{
 			return;
 		}
-
+/*
 		if(DependenceValueMapping.find(pArg) == DependenceValueMapping.end() )
 		{
 			set<Value *> setValue;
 			DependenceValueMapping[pArg] = setValue;
 		}
-
+*/
 		DependenceValueMapping[pArg].insert(pValue);
 		setProcessedInst.insert(pArg);
 	}
@@ -293,13 +295,21 @@ void CrossIterationRedundancy::BuildCallerCalleeMapping(Function * pFunction)
 	vector<Function *> vecWorkList;
 	vecWorkList.push_back(pFunction);
 
+	set<Function *> setEmptyFuncSet;
+	this->CalleeCallerMapping[pFunction] = setEmptyFuncSet;
+	set<Instruction *> setEmptyCallSite;
+	this->CalleeCallSiteMapping[pFunction] = setEmptyCallSite;
+
 	while(vecWorkList.size()>0)
 	{
 		Function * pCurrentFunction = vecWorkList[vecWorkList.size()-1];
 		vecWorkList.pop_back();
 
-		set<Function *> setCallees;
-		this->CallerCalleeMapping[pCurrentFunction] = setCallees;
+		set<Function *> setCalledFunction;
+		this->CallerCalleeMapping[pCurrentFunction] = setCalledFunction;
+
+		set<Instruction *> setCallSite;
+		this->CallerCallSiteMapping[pCurrentFunction] = setCallSite;
 
 		for(Function::iterator BB = pCurrentFunction->begin(); BB != pCurrentFunction->end(); BB ++ )
 		{
@@ -337,6 +347,9 @@ void CrossIterationRedundancy::BuildCallerCalleeMapping(Function * pFunction)
 					{	
 						continue;
 					}
+
+					this->CalleeCallerMapping[pCalledFunction].insert(pCurrentFunction);
+					this->CalleeCallSiteMapping[pCalledFunction].insert(II);
 
 					if(this->CallerCalleeMapping.find(pCalledFunction) == this->CallerCalleeMapping.end() )
 					{
@@ -378,12 +391,8 @@ void CrossIterationRedundancy::AnalyzeMemReadInst(Function * pFunction)
 {
 	BuildCallerCalleeMapping(pFunction);
 
-	set<Function *> setScope; // this is wrong
+	set<Function *> setScope; 
 	BuildScope(pFunction, setScope);
-
-	//set<Function *>::iterator itSetBegin = setScope.begin();
-	//set<Function *>::iterator itSetEnd = setScope.end();
-
 
 	map<Function *, set<Function *> >::iterator itCallerMapBegin = this->CallerCalleeMapping.begin();
 	map<Function *, set<Function *> >::iterator itCallerMapEnd = this->CallerCalleeMapping.end();
@@ -487,8 +496,6 @@ void CrossIterationRedundancy::AnalyzeMemReadInst(Function * pFunction)
 		}
 	}
 
-	//errs() << this->LoadTypeMapping.size() << "\n";
-	//errs() << this->MemTypeMapping.size() << "\n";
 }
 
 int CrossIterationRedundancy::CountLocalLoad()
@@ -511,7 +518,6 @@ int CrossIterationRedundancy::CountLocalLoad()
 		}
 	}
 
-	//errs() << iInput << "\n";
 
 	map<MemTransferInst *, pair<MemoryObjectType, MemoryObjectType> >::iterator itMapMemBegin = this->MemTypeMapping.begin();
 	map<MemTransferInst *, pair<MemoryObjectType, MemoryObjectType> >::iterator itMapMemEnd = this->MemTypeMapping.end();
@@ -528,9 +534,6 @@ int CrossIterationRedundancy::CountLocalLoad()
 		}
 	}
 
-	//errs() << iLocal << "\n";
-
-	errs() << iInput << "\n";
 	return iLocal;
 }
 
@@ -1106,7 +1109,6 @@ void CrossIterationRedundancy::IntraProcedureDependenceAnalysis(Function * pFunc
 	PostDominatorTree & PDT = getAnalysis<PostDominatorTree>(*pFunction);
 	CDG.graphForFunction(*pFunction, PDT);
 
-
 	vector<Instruction *> vecWorkList;
 
 	for(Function::iterator BB = pFunction->begin(); BB != pFunction->end(); BB ++)
@@ -1115,7 +1117,7 @@ void CrossIterationRedundancy::IntraProcedureDependenceAnalysis(Function * pFunc
 		{
 			continue;
 		}
-	    errs() << BB->getName() << "\n";
+
 	    //collect control flow dependence 
 		vector<Value *> CFGDependentValue;
 		for(Function::iterator BBtmp = pFunction->begin(); BBtmp != pFunction->end(); BBtmp++ )
@@ -1127,7 +1129,6 @@ void CrossIterationRedundancy::IntraProcedureDependenceAnalysis(Function * pFunc
 		
 			if(CDG.influences(BBtmp, BB))
 			{
-				errs() << BBtmp->getName() << "\n";
 				TerminatorInst * pTerminator = BBtmp->getTerminator();
 				if(pTerminator !=NULL)
 				{
@@ -1146,7 +1147,6 @@ void CrossIterationRedundancy::IntraProcedureDependenceAnalysis(Function * pFunc
 			}
 		}
 
-		errs() << "*******************************\n";
 		for(BasicBlock::iterator II = BB->begin(); II != BB->end(); II ++ )
 		{
 			vector<Value *>::iterator itVecValueBegin = CFGDependentValue.begin();
@@ -1166,8 +1166,10 @@ void CrossIterationRedundancy::IntraProcedureDependenceAnalysis(Function * pFunc
 			{
 				if(!isa<DbgInfoIntrinsic>(II))
 				{
+					/*
 					set<Value *> setControlDep;
 					CallSiteCDependenceMapping[II] = setControlDep;
+					*/
 
 					itVecValueBegin = CFGDependentValue.begin();
 					itVecValueEnd = CFGDependentValue.end();
@@ -1242,7 +1244,6 @@ void CrossIterationRedundancy::IntraProcedureDependenceAnalysis(Function * pFunc
 				{
 					if(this->LoadTypeMapping[pLoad] != MO_LOCAL)
 					{
-
 						setNewDependentValue.insert(pLoad);
 						continue;
 					}
@@ -1514,6 +1515,124 @@ void CrossIterationRedundancy::BottomUpDependenceAnalysis(Function * pFunction)
 	}
 }
 
+
+void CrossIterationRedundancy::TopDownDependenceAnalysis(Function * pFunction)
+{
+	set<Instruction *>::iterator itInstBegin;
+	set<Instruction *>::iterator itInstEnd;
+	//add real-formal parameter
+	vector< set<Value *> > vecArgDValues;
+	for(size_t i = 0; i < pFunction->arg_size(); i ++ )
+	{
+		set<Value *> setArgValues;
+		vecArgDValues.push_back(setArgValues);
+	}
+
+	itInstBegin = this->CalleeCallSiteMapping[pFunction].begin();
+	itInstEnd   = this->CalleeCallSiteMapping[pFunction].end();
+
+	for(; itInstBegin != itInstEnd; itInstBegin ++)
+	{
+		Function * pCaller = (*itInstBegin)->getParent()->getParent();
+
+		for(size_t i = 0; i < pFunction->arg_size(); i ++ )
+		{
+			Value * pOperand = (*itInstBegin)->getOperand(i);
+
+			if(Instruction * pInstruction = dyn_cast<Instruction>(pOperand))
+			{
+				Function * pContainedFunction = pInstruction->getParent()->getParent();
+
+				if(pContainedFunction != pCaller)
+				{
+					vecArgDValues[i].insert(pInstruction);
+				}
+				else
+				{
+					vecArgDValues[i].insert(this->FuncValueDependenceMappingMapping[pCaller][pInstruction].begin(), this->FuncValueDependenceMappingMapping[pCaller][pInstruction].end());
+				}
+			}
+			else
+			{
+				vecArgDValues[i].insert(pOperand);
+			}
+		}
+	}
+
+	size_t index = 0;
+	for(Function::arg_iterator argBegin = pFunction->arg_begin(); argBegin != pFunction->arg_end(); argBegin ++ )
+	{
+		FuncArgDependenceMappingMapping[pFunction][argBegin] = vecArgDValues[index];
+		index ++;
+	}
+
+	//add control flow dependence
+	set<Value *> setCDValues;
+	itInstBegin = this->CalleeCallSiteMapping[pFunction].begin();
+	itInstEnd   = this->CalleeCallSiteMapping[pFunction].end();
+
+	for(; itInstBegin != itInstEnd; itInstBegin ++)
+	{
+		Function * pCaller = (*itInstBegin)->getParent()->getParent();
+
+		set<Value *>::iterator itCDValBegin = this->FuncCallSiteCDependenceMappingMapping[pCaller][*itInstBegin].begin();
+		set<Value *>::iterator itCDValEnd   = this->FuncCallSiteCDependenceMappingMapping[pCaller][*itInstBegin].end();
+
+		for(; itCDValBegin != itCDValEnd; itCDValBegin ++ )
+		{
+			if(Instruction * pInstruction = dyn_cast<Instruction>(*itCDValBegin))
+			{
+				Function * pContainedFunction = pInstruction->getParent()->getParent();
+				if(pContainedFunction != pCaller)
+				{
+					setCDValues.insert(pInstruction);
+				}
+				else
+				{
+					setCDValues.insert(this->FuncValueDependenceMappingMapping[pCaller][pInstruction].begin(), this->FuncValueDependenceMappingMapping[pCaller][pInstruction].end());
+				}
+			}
+			else 
+			{
+				setCDValues.insert(*itCDValBegin);
+			}
+		}
+	}
+
+	
+
+	for(Function::iterator BB = pFunction->begin(); BB != pFunction->end(); BB ++ )
+	{
+		for(BasicBlock::iterator II = BB->begin(); II != BB->end(); II ++ )
+		{
+			set<Value *> newValueSet;
+
+			set<Value *>::iterator itValSetBegin = this->FuncValueDependenceMappingMapping[pFunction][II].begin();
+			set<Value *>::iterator itValSetEnd   = this->FuncValueDependenceMappingMapping[pFunction][II].end();
+
+			for(; itValSetBegin != itValSetEnd; itValSetBegin ++ )
+			{
+				if(Argument * pArg = dyn_cast<Argument>(*itValSetBegin))
+				{
+					if(pArg->getParent() == pFunction)
+					{
+						newValueSet.insert(vecArgDValues[pArg->getArgNo()].begin(), vecArgDValues[pArg->getArgNo()].end());
+					}
+				}
+				else
+				{
+					newValueSet.insert(*itValSetBegin);
+				}
+			}
+
+			newValueSet.insert(setCDValues.begin(), setCDValues.end());
+
+			this->FuncValueDependenceMappingMapping[pFunction][II] = newValueSet;
+		}
+	}
+}
+
+/*
 void CrossIterationRedundancy::TopDownDependenceAnalysis()
 {	
 	vector<Argument *> vecWorkList;
@@ -1756,7 +1875,7 @@ void CrossIterationRedundancy::TopDownDependenceAnalysis()
 	}
 
 
-/*
+
 	map<Argument *, set<Value *> >::iterator itArgMapBegin = ArgDependenceMapping.begin();
 	map<Argument *, set<Value *> >::iterator itArgMapEnd   = ArgDependenceMapping.end();
 
@@ -1790,11 +1909,9 @@ void CrossIterationRedundancy::TopDownDependenceAnalysis()
 
 		errs() << "************************************\n" ;
 	}
-*/
-
 
 }
-
+*/
 
 
 
@@ -1929,27 +2046,6 @@ void CrossIterationRedundancy::DependenceAnalysis(Function * pFunction)
 		CallGraphMapping[itCallerMapBegin->first] = itCallerMapBegin->second;
 	}
 
-	set<StoreInst *>::iterator itSetStoreBegin = setStore.begin();
-	set<StoreInst *>::iterator itSetStoreEnd   = setStore.end();
-
-	for(; itSetStoreBegin != itSetStoreEnd; itSetStoreBegin ++)
-	{
-		Function * pCurrentFunction = (*itSetStoreBegin)->getParent()->getParent();
-		PrintIntraDependence(*itSetStoreBegin, this->FuncValueDependenceMappingMapping[pCurrentFunction][*itSetStoreBegin]);
-	}
-
-	set<ReturnInst *>::iterator itRetBegin = setRetInst.begin();
-	set<ReturnInst *>::iterator itRetEnd = setRetInst.end();
-
-	for(; itRetBegin != itRetEnd; itRetBegin ++)
-	{
-		Function * pCurrentFunction = (*itRetBegin)->getParent()->getParent();
-		PrintIntraDependence(*itRetBegin, this->FuncValueDependenceMappingMapping[pCurrentFunction][*itRetBegin]);
-	}
-	return;
-
-
-
 	//bottom-up
 	while(setProcessedFunc.size() < CallGraphMapping.size())
 	{
@@ -2004,15 +2100,74 @@ void CrossIterationRedundancy::DependenceAnalysis(Function * pFunction)
 		for(; itVecBegin != itVecEnd; itVecBegin ++ )
 		{
 			BottomUpDependenceAnalysis(*itVecBegin);
-		}
-		
+		}	
 	}
 
-	TopDownDependenceAnalysis();
-	return;
+
+	map<Function *, set<Function *> >  CalleeCallerGraph = this->CalleeCallerMapping;
+	setProcessedFunc.clear();
+
+	while(setProcessedFunc.size() < CalleeCallerGraph.size())
+	{
+		map<Function *, set<Function *> >::iterator itCalleeCallerBegin = CalleeCallerGraph.begin();
+		map<Function *, set<Function *> >::iterator itCalleeCallerEnd   = CalleeCallerGraph.end();
+
+		for(; itCalleeCallerBegin != itCalleeCallerEnd; itCalleeCallerBegin ++)
+		{
+			if(itCalleeCallerBegin->second.size() == 0 )
+			{
+				setProcessedFunc.insert(itCalleeCallerBegin->first);
+			}
+		}
+
+		vector<Function *> vecToDo;
+		itCalleeCallerBegin = CalleeCallerGraph.begin();
+
+		for(; itCalleeCallerBegin != itCalleeCallerEnd; itCalleeCallerBegin ++ )
+		{
+			if(itCalleeCallerBegin->second.size() == 0 )
+			{
+				continue;
+			}
+
+			set<Function *> setNewCaller;
+
+			set<Function *>::iterator itSetBegin = itCalleeCallerBegin->second.begin();
+			set<Function *>::iterator itSetEnd   = itCalleeCallerBegin->second.end();
+
+			for(; itSetBegin != itSetEnd; itSetBegin ++)
+			{
+				if(setProcessedFunc.find(*itSetBegin) == setProcessedFunc.end() && CalleeCallerGraph.find(*itSetBegin) != CalleeCallerGraph.end() )
+				{
+					setNewCaller.insert(*itSetBegin);
+				}
+			}
+
+			if(setNewCaller.size() == 0 )
+			{
+				vecToDo.push_back(itCalleeCallerBegin->first);
+			}
+
+			CalleeCallerGraph[itCalleeCallerBegin->first] = setNewCaller;
+		}
+
+		vector<Function *>::iterator itVecBegin = vecToDo.begin();
+		vector<Function *>::iterator itVecEnd   = vecToDo.end();
+
+		for(; itVecBegin != itVecEnd; itVecBegin ++)
+		{
+			TopDownDependenceAnalysis(*itVecBegin);
+		}
+	}
+
+
+
+
+
+	
 
 	//top-down
-	/*
+
 	set<StoreInst *>::iterator itSetStoreBegin = setStore.begin();
 	set<StoreInst *>::iterator itSetStoreEnd   = setStore.end();
 
@@ -2021,7 +2176,7 @@ void CrossIterationRedundancy::DependenceAnalysis(Function * pFunction)
 		Function * pCurrentFunction = (*itSetStoreBegin)->getParent()->getParent();
 		PrintIntraDependence(*itSetStoreBegin, this->FuncValueDependenceMappingMapping[pCurrentFunction][*itSetStoreBegin]);
 	}
-*/
+
 	
 
 }
@@ -2042,9 +2197,9 @@ bool CrossIterationRedundancy::runOnModule(Module& M)
 	InitializePureFunctionSet();
 	InitializeMemoryAllocFunctionSet();
 
-	
 	AnalyzeMemReadInst(pFunction);
 	int iLocal = CountLocalLoad();
+
 
 	if(iLocal > 0)
 	{
@@ -2054,7 +2209,6 @@ bool CrossIterationRedundancy::runOnModule(Module& M)
 		this->MemInstDependentInstMapping = this->pSFReach->MemInstDependentInstMapping;
 	}
 
-	//DependenceAnalysisInfeasiblePath(pFunction);
 	DependenceAnalysis(pFunction);
 
 	return false;

@@ -29,6 +29,7 @@ Function * SearchFunctionByName(Module & M, string & strFileName, string & strFu
 
 	for( Module::iterator f = M.begin(), fe = M.end(); f != fe; f ++ )
 	{
+		//errs() << f->getName() << "\n";
 		if( f->getName().find(strFunctionName) != std::string::npos )
 		{
 			//errs() << f->getName() << "\n";
