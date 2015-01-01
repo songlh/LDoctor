@@ -30,6 +30,7 @@ void PrintInstRecord(LogRecord log)
 	cout << log.IR.uInstructionID << ": " << log.IR.Value << endl;
 }
 
+/*
 bool CmpTwoLoadSequence( vector<pair<long, long> > & vecA, vector<pair<long, long> > & vecB )
 {
 // pattern 1
@@ -88,47 +89,116 @@ bool CmpTwoLoadSequence( vector<pair<long, long> > & vecA, vector<pair<long, lon
 		}
 	}
 }
+*/
 
-int LCSLength(vector<pair<long, long> > & vecA, vector<pair<long, long> > & vecB)
+//vecA.size() >= vecB.size()
+bool SubSequence(vector<long> & vecA, vector<long> & vecB)
 {
-	int m = vecA.size() + 1;
-	int n = vecB.size() + 1;
-
-	int ** C = (int **)malloc(sizeof(int*) * m);
-	for(int i = 0; i < m ; i ++)
+	int max = vecA.size() - vecB.size();
+	long first = vecB[0];
+	for(int i = 0; i <= max; i ++)
 	{
-		C[i] = (int *)malloc(sizeof(int) * n);
-		for(int j = 0; j < n; j ++)
+		if(vecA[i] != first)
 		{
-			C[i][j] = 0;
+			while(++i <= max && vecA[i] != first);
 		}
-	}
 
-	for(int i = 1; i < m ; i ++ )
-	{
-		for(int j = 1; j < n ; j ++ )
+		if(i<=max)
 		{
-			if(vecA[i-1].second == vecB[j-1].second)
+			int j = i + 1;
+			int end = j + vecB.size() - 1; 
+			for(int k = 1; j < end && vecA[j] == vecB[k]; j ++, k ++ );
+
+			if(j == end)
 			{
-				C[i][j] = C[i-1][j-1] + 1;
-			}
-			else
-			{
-				if(C[i][j-1] > C[i-1][j])
-				{
-					C[i][j] = C[i][j-1];
-				}
-				else
-				{
-					C[i][j] = C[i-1][j];
-				}
+				return true;
 			}
 		}
 	}
 
-	cout << C[m-1][n-1] << " " << vecA.size() << " " << vecB.size() << endl;
-	//exit(0);
+	return false;
 }
+
+
+
+template <typename Type>
+Type minimun( Type a, Type b, Type c)
+{
+	if(a > b)
+	{
+		if(b > c)
+		{
+			return c;
+		}
+		else
+		{
+			return b;
+		}
+	}
+	else
+	{
+		if(a > c)
+		{
+			return c;
+		}
+		else
+		{
+			return b;
+		}
+	}
+} 
+
+
+
+int EditDistance(vector<long> & vecA, vector<long> & vecB)
+{
+	int * d[2];
+
+    d[0] = (int *)malloc(sizeof(int) * (vecB.size()+1 ));
+    d[1] = (int *)malloc(sizeof(int) * (vecB.size()+1 ));
+
+    for(int i = 0; i < vecB.size()+1; i ++)
+    {
+    	d[0][i] = i;
+    	d[0][i] = 0;
+    }
+
+    int last;
+    int index = 0;
+
+    for(int i = 1; i < vecA.size() + 1; i ++ )
+    {
+    	last = index;
+    	index = (index + 1) % 2;
+
+    	for(int j = 1; j < vecB.size() + 1 ; j ++ )
+    	{
+    		if(vecA[i-1] == vecB[j-1])
+    		{
+    			d[index][j] = d[last][j-1];
+    		}
+    		else
+    		{
+    			if(j==1)
+    			{
+    				d[index][j] = minimun(d[last][j], i - 1, i ) + 1;
+    			}
+    			else
+    			{
+    				d[index][j] = minimun(d[last][j], d[last][j-1], d[index][j-1]) + 1;
+    			}
+    		}
+    	}
+    }
+
+    int result = d[index][vecB.size()];
+    free(d[0]);
+    free(d[1]);
+
+    return result;
+
+}
+
 
 
 void CmpTwoConsecutiveSequence(vector<LogRecord> & vecA, vector<LogRecord> & vecB, set<int> & setDifferentPara, set<int> & setDifferentInst )
@@ -177,7 +247,7 @@ void CmpTwoConsecutiveSequence(vector<LogRecord> & vecA, vector<LogRecord> & vec
 	{
 		if(itMapBegin->second != ParaValueMapping2[itMapBegin->first])
 		{
-			cout << itMapBegin->first << ": " << itMapBegin->second << " " << ParaValueMapping2[itMapBegin->first] << endl;
+			//cout << itMapBegin->first << ": " << itMapBegin->second << " " << ParaValueMapping2[itMapBegin->first] << endl;
 			setDifferentPara.insert(itMapBegin->first);
 		}
 	}
@@ -223,43 +293,66 @@ void CmpTwoConsecutiveSequence(vector<LogRecord> & vecA, vector<LogRecord> & vec
 	assert(index1 == index2);
 
 // compare memory load inside loop
-	map<unsigned, vector<pair< long, long > > > LoadValueMapping1;
-	map<unsigned, vector<pair< long, long > > > LoadValueMapping2;
+	map<unsigned, pair<vector<long>, vector<long> > > LoadValueMapping1;
+	map<unsigned, pair<vector<long>, vector<long> > > LoadValueMapping2;
 
 	for(; index1 < vecA.size(); index1++)
 	{
-		pair<long, long> pairTmp;
-		pairTmp.first = vecA[index1].LR.LoadAddress;
-		pairTmp.second = vecA[index1].LR.LoadValue;
-		//cout << vecA[index1].LR.LoadAddress  << ": " << vecA[index1].LR.LoadValue << "\n";
-		LoadValueMapping1[vecA[index1].LR.uInstructionID].push_back(pairTmp);
+		LoadValueMapping1[vecA[index1].LR.uInstructionID].first.push_back(vecA[index1].LR.LoadAddress);
+		LoadValueMapping1[vecA[index1].LR.uInstructionID].second.push_back(vecA[index1].LR.LoadValue);
 	}
 
 	//cout << "********************************************\n";
 
 	for(; index2 < vecB.size(); index2++)
 	{
-		pair<long, long> pairTmp;
-		pairTmp.first = vecB[index2].LR.LoadAddress;
-		pairTmp.second = vecB[index2].LR.LoadValue;
-		//cout << vecB[index2].LR.LoadAddress << ": " << vecB[index2].LR.LoadValue << "\n";
-		LoadValueMapping2[vecB[index2].LR.uInstructionID].push_back(pairTmp);
+		LoadValueMapping2[vecB[index2].LR.uInstructionID].first.push_back(vecB[index2].LR.LoadAddress);
+		LoadValueMapping2[vecB[index2].LR.uInstructionID].second.push_back(vecB[index2].LR.LoadValue);
 	}
 	
 
-	map<unsigned, vector<pair<long, long> > >::iterator itMapLoadBegin = LoadValueMapping1.begin();
-	map<unsigned, vector<pair<long, long> > >::iterator itMapLoadEnd   = LoadValueMapping1.end();
+	map<unsigned, pair<vector<long>, vector<long> > >::iterator itMapLoadBegin = LoadValueMapping1.begin();
+	map<unsigned, pair<vector<long>, vector<long> > >::iterator itMapLoadEnd   = LoadValueMapping1.end();
 
 	for(; itMapLoadBegin != itMapLoadEnd; itMapLoadBegin ++ )
 	{
-		/*
-		if(!CmpTwoLoadSequence(itMapLoadBegin->second, LoadValueMapping2[itMapLoadBegin->first]))
+		if(itMapLoadBegin->second.first.size() >= LoadValueMapping2[itMapLoadBegin->first].first.size() )
 		{
-			cout << "Load: " << itMapLoadBegin->first << endl;
-			exit(0);
+			if(SubSequence(itMapLoadBegin->second.second, LoadValueMapping2[itMapLoadBegin->first].second))
+			{
+				continue;
+			}
 		}
-		*/
-		LCSLength(itMapLoadBegin->second, LoadValueMapping2[itMapLoadBegin->first] );
+		else
+		{
+			if(SubSequence(LoadValueMapping2[itMapLoadBegin->first].second, itMapLoadBegin->second.second))
+			{
+				continue;
+			}
+		}
+
+		int AddressDistance = EditDistance(itMapLoadBegin->second.first, LoadValueMapping2[itMapLoadBegin->first].first);
+		int ValueDistance   = EditDistance(itMapLoadBegin->second.second, LoadValueMapping2[itMapLoadBegin->first].second);
+
+		if(ValueDistance == 1 )
+		{
+			continue;
+		}
+		else 
+		{
+			int sizeDifferent = itMapLoadBegin->second.first.size() - LoadValueMapping2[itMapLoadBegin->first].first.size();
+			if(sizeDifferent < 0 )
+			{
+				sizeDifferent = sizeDifferent * (-1);
+			}
+
+			if(sizeDifferent == ValueDistance)
+			{
+				continue;
+			}
+
+			printf("LoadID: %d, AddressDistance: %d, ValueDistance: %d\n", itMapLoadBegin->first, AddressDistance, ValueDistance);
+		}
 	}
 
 	//exit(0);
@@ -278,7 +371,6 @@ int main(int argc, char ** argv)
 		exit(0);
 	}
 
-
 	string sInput = string(argv[1]);
 	LogRecord log;
 
@@ -289,15 +381,17 @@ int main(int argc, char ** argv)
 	int iTotalLoad = 0;
 	int iTotalPara = 0;
 
-
 	int iLast = 0;
 	int iCurrent = 0;
 
-	vector< vector<LogRecord> > vecLogRecord;
+	vector<vector<LogRecord> > vecLogRecord;
 	vector<LogRecord> vecTmp;
+
+	int count = 0;
 
 	while(fread(&log, sizeof(LogRecord), 1, MyLogFile))
 	{
+		count ++;
 		
 		switch(log.RecordType)
 		{
@@ -315,7 +409,7 @@ int main(int argc, char ** argv)
 				break;
 			case LogRecord::Delimiter:
 				iCurrent = log.DR.numExecution;
-				//printf("%d \n", iCurrent);
+				//printf("%d %d\n", iLast, iCurrent);
 				if(iCurrent != iLast)
 				{
 					if(vecTmp.size() > 0)
@@ -327,18 +421,18 @@ int main(int argc, char ** argv)
 					iLast = iCurrent;
 					iExecution ++ ;
 				}
-				else
-				{
-					printf("%d %d", iLast, iCurrent);
-				}
 				vecTmp.push_back(log);
 				break;
 		}
+
+	
 	}
+
 
 	vecLogRecord.push_back(vecTmp);
 
 	fclose(MyLogFile);
+
 	cout << "Total Load: " << iTotalLoad << endl;
 	cout << "Total Instruction: " << iTotalInstruction << endl;
 	cout << "Total Parameter: " << iTotalPara << endl;
@@ -348,13 +442,58 @@ int main(int argc, char ** argv)
 	set<int> setDifferentPara;
 	set<int> setDifferentInst;
 
+
+	int index = 0;
+
+	while(index < vecLogRecord.size() )
+	{
+		if(vecLogRecord[index][0].DR.numExecution + 1 == vecLogRecord[index + 1][0].DR.numExecution)
+		{
+			CmpTwoConsecutiveSequence(vecLogRecord[index], vecLogRecord[index+1], setDifferentPara, setDifferentInst);
+			index += 2;
+		}
+		else if(vecLogRecord[index+1][0].DR.numExecution + 1 == vecLogRecord[index + 2][0].DR.numExecution)
+		{
+			CmpTwoConsecutiveSequence(vecLogRecord[index+1], vecLogRecord[index+2], setDifferentPara, setDifferentInst);
+			index += 3;
+		}
+		else
+		{
+			printf("%ld %ld %ld\n", vecLogRecord[index][0].DR.numExecution, vecLogRecord[index+1][0].DR.numExecution, vecLogRecord[index+2][0].DR.numExecution);
+			exit(0);
+		}
+
+	}
+
+	/*
 	for(size_t i = 0; i < vecLogRecord.size()/2; i ++ )
 	{
-		CmpTwoConsecutiveSequence(vecLogRecord[i*2], vecLogRecord[i*2+1], setDifferentPara, setDifferentInst);
+		printf("%ld %ld\n", vecLogRecord[i*2][0].DR.numExecution, vecLogRecord[i*2+1][0].DR.numExecution);
+		//CmpTwoConsecutiveSequence(vecLogRecord[i*2], vecLogRecord[i*2+1], setDifferentPara, setDifferentInst);
 	}
+	*/
 
 
 	cout << "Different Para Num: " << setDifferentPara.size() << endl;
 
+	
+
+	set<int>::iterator itSetBegin = setDifferentPara.begin();
+	set<int>::iterator itSetEnd = setDifferentPara.end();
+
+	for(; itSetBegin != itSetEnd; itSetBegin ++)
+	{
+		cout << (*itSetBegin) << endl;
+	}
+
 	cout << "Different Inst Num: " << setDifferentInst.size() << endl; 
+
+	itSetBegin = setDifferentInst.begin();
+	itSetEnd = setDifferentInst.end();
+
+	for(; itSetBegin != itSetEnd; itSetBegin ++)
+	{
+		cout << (*itSetBegin) << endl;
+	}
+	
 }

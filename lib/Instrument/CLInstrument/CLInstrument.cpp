@@ -425,6 +425,16 @@ void CrossLoopInstrument::InlineHookPara(Argument * pArg, Instruction * II)
 			pStore->setAlignment(8);
 		}
 	}
+	else if(isa<PointerType>(pArg->getType()))
+	{
+		pCast = new PtrToIntInst(pArg, this->LongType, "", II);
+		vecIndex.clear();
+		vecIndex.push_back(this->ConstantInt0);
+		vecIndex.push_back(this->ConstantInt1);
+		const_ptr = ConstantExpr::getGetElementPtr(ParaRecord_ptr, vecIndex);
+		pStore = new StoreInst(pCast, const_ptr, false, II);
+		pStore->setAlignment(8);
+	}
 
 	LoadInst * pLoadPointer = new LoadInst(this->pcBuffer_CPI, "", false, II);
 	pLoadPointer->setAlignment(8);
@@ -852,6 +862,8 @@ void CrossLoopInstrument::InstrumentOuterLoop(Loop * pOuterLoop)
 	pAdd = BinaryOperator::Create(Instruction::Add, pLoadnumGlobalCounter, this->ConstantInt1, "add", pHeader->getTerminator());
 	pStore = new StoreInst(pAdd, this->numGlobalCounter, false, pHeader->getTerminator());
 	pStore->setAlignment(8);
+
+	
 }
 
 BasicBlock * CrossLoopInstrument::SearchPostDominatorForLoop(Loop * pLoop,  PostDominatorTree * pPDT )
@@ -1463,15 +1475,17 @@ bool CrossLoopInstrument::runOnModule(Module& M)
 	PostDominatorTree * PDT = &getAnalysis<PostDominatorTree>(*pInnerFunction);
 	LoopInfo * pInnerLI = &(getAnalysis<LoopInfo>(*pInnerFunction));
 	Loop * pInnerLoop = SearchLoopByLineNo(pInnerFunction, pInnerLI, uInnerSrcLine);
+
 	if(pInnerLoop == NULL)
 	{
 		errs() << "Cannot find the inner loop!\n";
 		return false;
 	}
 	
+	
 	InstrumentInnerLoop(pInnerLoop, PDT);
 	
-	pInnerFunction->dump();
+	//pInnerFunction->dump();
 	return true;
 }
 

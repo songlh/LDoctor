@@ -110,6 +110,7 @@ void SearchBasicBlocksByLineNo( Function * F, unsigned uLineNo, vector<BasicBloc
 			if( MDNode *N = i->getMetadata("dbg") )
 			{
 				DILocation Loc(N);
+				//errs() << Loc.getLineNumber() << "\n";
 				if( uLineNo == Loc.getLineNumber() )
 				{
 					vecBasicBlocks.push_back(b);
@@ -139,6 +140,21 @@ Loop * SearchLoopByLineNo( Function * pFunction, LoopInfo * pLI, unsigned uLineN
 
 	if( pBlock == NULL )
 	{
+		//return NULL;
+		set<Loop *> setLoop;
+		for(Function::iterator BB = pFunction->begin(); BB != pFunction->end(); BB ++ )
+		{
+			if(pLI->getLoopDepth(BB) > 0 )
+			{
+				setLoop.insert(pLI->getLoopFor(BB));
+			}
+		}
+
+		if(setLoop.size() == 1)
+		{
+			return *(setLoop.begin());
+		}
+
 		return NULL;
 	}
        

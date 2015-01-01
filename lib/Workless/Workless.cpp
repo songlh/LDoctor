@@ -413,7 +413,6 @@ bool Workless::IsWorkless0Star1(set<BasicBlock *> & setType1Block, set<BasicBloc
 	set<BasicBlock *>::iterator itSetBlockBegin = setType1Block.begin();
 	set<BasicBlock *>::iterator itSetBlockEnd   = setType1Block.end();
 
-
 	for(; itSetBlockBegin != itSetBlockEnd; itSetBlockBegin ++)
 	{
 		if(!BlockWithoutSideEffect(*itSetBlockBegin))
@@ -427,7 +426,6 @@ bool Workless::IsWorkless0Star1(set<BasicBlock *> & setType1Block, set<BasicBloc
 
 	for(; itSetBlockBegin != itSetBlockEnd; itSetBlockBegin ++ )
 	{
-		//errs() << (*itSetBlockBegin)->getName() << "\n";
 
 		if(!BlockWithoutSideEffect(*itSetBlockBegin))
 		{
@@ -451,6 +449,7 @@ bool Workless::IsWorkless0Star1(set<BasicBlock *> & setType1Block, set<BasicBloc
 		//errs() << (*itSetEdgeBegin).first->getName() << "->" << (*itSetEdgeBegin).second->getName() << "\n";
 		SETBefore::iterator itSetBegin = setBefore.begin();
 		SETBefore::iterator itSetEnd = setBefore.end();
+		//(*itSetBegin)->dump();
 
 		for(; itSetBegin != itSetEnd; itSetBegin++ )
 		{
@@ -478,50 +477,85 @@ bool Workless::IsWorkless0Star1(set<BasicBlock *> & setType1Block, set<BasicBloc
 	return true;
 }
 
-void Workless::CollectWorkingBlocks(set<BasicBlock *> & setInputBlocks, set<BasicBlock *> & setWorkingBlocks, MAPBlockBeforeAfterPair & mapBeforeAndAfter)
+void Workless::CollectWorkingBlocks(set<BasicBlock *> & setType1Block, set<BasicBlock *> & setType2Block, set<BasicBlock *> & setWorkingBlocks, MAPBlockBeforeAfterPair & mapBeforeAndAfter)
 {
-	set<BasicBlock *>::iterator itSetBegin = setInputBlocks.begin();
-	set<BasicBlock *>::iterator itSetEnd   = setInputBlocks.end();
+	set<BasicBlock *>::iterator itSetBegin = setType1Block.begin();
+	set<BasicBlock *>::iterator itSetEnd   = setType1Block.end();
 
 	for(; itSetBegin != itSetEnd; itSetBegin ++ )
 	{
 		if(!BlockWithoutSideEffect(*itSetBegin))
 		{
+			//errs() << "working block: " << (*itSetBegin)->getName() << "\n";
 			setWorkingBlocks.insert(*itSetBegin);
 		}
 	}
 
 	set<Edge> setExitEdge;
-	SearchExitEdgesForBlocks(setExitEdge, setInputBlocks);
+	SearchExitEdgesForBlocks(setExitEdge, setType1Block);
+
+	//errs() << "Exit Edge: " << setExitEdge.size() << "\n";
 
 	set<Edge>::iterator itSetEdgeBegin = setExitEdge.begin();
 	set<Edge>::iterator itSetEdgeEnd   = setExitEdge.end();
 
 	for(; itSetEdgeBegin != itSetEdgeEnd; itSetEdgeBegin ++ )
 	{
+		if(setType2Block.find(itSetEdgeBegin->second) != setType2Block.end() )
+		{
+			continue;
+		}
+
 		SETBefore setBefore = mapBeforeAndAfter[itSetEdgeBegin->second].first[itSetEdgeBegin->first];
+		//errs() << itSetEdgeBegin->first->getName() << "->" << itSetEdgeBegin->second->getName() << "\n";
+
 		SETBefore::iterator itSetBegin = setBefore.begin();
 		SETBefore::iterator itSetEnd = setBefore.end();
 
 		for(; itSetBegin != itSetEnd; itSetBegin++ )
 		{
-			if( setInputBlocks.find( ( *itSetBegin)->getParent() ) != setInputBlocks.end() )
+			if( setType1Block.find( ( *itSetBegin)->getParent() ) != setType1Block.end() )
 			{
+				//(*itSetBegin)->dump();
+
 				if(PHINode * pPHINode = dyn_cast<PHINode>(*itSetBegin))
 				{
 					vector<PHINode *> vecPendingPHIInstructions;
 					set<PHINode *> setHandledPHIInstructions;
 					for(unsigned int i = 0 ; i < pPHINode->getNumIncomingValues(); i++)
 					{
-						if(setInputBlocks.find(pPHINode->getIncomingBlock(i)) != setInputBlocks.end())
+						if(setType1Block.find(pPHINode->getIncomingBlock(i)) != setType1Block.end())
 						{
 							if(PHINode * pPHI = dyn_cast<PHINode>(pPHINode->getIncomingValue(i)))
 							{
 								vecPendingPHIInstructions.push_back(pPHI);
 								setHandledPHIInstructions.insert(pPHI);
 							}
+							else if(Instruction * pInst = dyn_cast<Instruction>(pPHINode->getIncomingValue(i)))
+							{
+								if(setType1Block.find(pInst->getParent()) != setType1Block.end())
+								{
+
+									if(this->PDT->dominates(pPHINode->getIncomingBlock(i), pInst->getParent()))
+									{
+										//errs() << "1" << pInst->getParent()->getName() << "\n";
+										setWorkingBlocks.insert(pInst->getParent());
+									}
+									else
+									{
+										//errs() << "2" << pPHINode->getIncomingBlock(i)->getName() << "\n";
+										setWorkingBlocks.insert(pPHINode->getIncomingBlock(i));
+									}
+								}
+								else
+								{
+									//errs() << "3" << pPHINode->getIncomingBlock(i)->getName() << "\n";
+									setWorkingBlocks.insert(pPHINode->getIncomingBlock(i));
+								}
+							}
 							else
 							{
+								//errs() << "4" << pPHINode->getIncomingBlock(i)->getName() << "\n";
 								setWorkingBlocks.insert(pPHINode->getIncomingBlock(i));
 							}
 						}
@@ -534,7 +568,7 @@ void Workless::CollectWorkingBlocks(set<BasicBlock *> & setInputBlocks, set<Basi
 
 						for(unsigned int i = 0 ; i < pPHICurrent->getNumIncomingValues(); i++)
 						{
-							if(setInputBlocks.find(pPHICurrent->getIncomingBlock(i)) != setInputBlocks.end())
+							if(setType1Block.find(pPHICurrent->getIncomingBlock(i)) != setType1Block.end())
 							{
 								if(PHINode * pPHI = dyn_cast<PHINode>(pPHICurrent->getIncomingValue(i)))
 								{
@@ -544,8 +578,31 @@ void Workless::CollectWorkingBlocks(set<BasicBlock *> & setInputBlocks, set<Basi
 										setHandledPHIInstructions.insert(pPHI);
 									}
 								}
+								else if(Instruction * pInst = dyn_cast<Instruction>(pPHICurrent->getIncomingValue(i)))
+								{
+									if(setType1Block.find(pInst->getParent()) != setType1Block.end())
+									{
+										
+										if(this->PDT->dominates(pPHICurrent->getIncomingBlock(i), pInst->getParent()))
+										{
+											//errs() << "5" << pInst->getParent()->getName() << "\n";
+											setWorkingBlocks.insert(pInst->getParent());
+										}
+										else
+										{
+											//errs() << "6" << pPHICurrent->getIncomingBlock(i)->getName() << "\n";
+											setWorkingBlocks.insert(pPHICurrent->getIncomingBlock(i));
+										}
+									}
+									else
+									{
+										//errs() << "7" << pPHICurrent->getIncomingBlock(i)->getName() << "\n";
+										setWorkingBlocks.insert(pPHICurrent->getIncomingBlock(i));
+									}
+								}
 								else
 								{
+									//errs() << "8" << pPHICurrent->getIncomingBlock(i)->getName() << "\n";
 									setWorkingBlocks.insert(pPHICurrent->getIncomingBlock(i));
 								}
 							}
@@ -560,13 +617,50 @@ void Workless::CollectWorkingBlocks(set<BasicBlock *> & setInputBlocks, set<Basi
 		}
 	}
 
+	//errs() << "After first loop: " << setWorkingBlocks.size() << "\n";
+
+	set<BasicBlock *> setTmp = setWorkingBlocks;
+	setWorkingBlocks.clear();
+
+	itSetBegin = setTmp.begin();
+	itSetEnd   = setTmp.end();
+
+	for(; itSetBegin != itSetEnd; itSetBegin++)
+	{
+		set<BasicBlock *>::iterator itSetBeginTmp = setTmp.begin();
+		set<BasicBlock *>::iterator itSetEndTmp   = setTmp.end();
+
+		bool bFlag = true;
+		for(; itSetBeginTmp != itSetEndTmp; itSetBeginTmp ++ )
+		{
+			if(*itSetBegin == *itSetBeginTmp)
+			{
+				continue;
+			}
+
+			if(this->PDT->dominates(*itSetBeginTmp, *itSetBegin))
+			{
+				bFlag = false;
+				break;
+
+			}
+		}
+
+		if(bFlag)
+		{
+			setWorkingBlocks.insert(*itSetBegin);
+		}
+	}
+
 }
 
 
-bool Workless::IsWorkless0Or1Star(Loop * pLoop, set<BasicBlock *> & setInputBlocks, MAPBlockBeforeAfterPair & mapBeforeAndAfter)
+bool Workless::IsWorkless0Or1Star(Loop * pLoop, set<BasicBlock *> & setType1Block, set<BasicBlock *> & setType2Block, MAPBlockBeforeAfterPair & mapBeforeAndAfter, set<BasicBlock *> & setWorkingBlocks)
 {
-	set<BasicBlock *> setWorkingBlocks;
-	CollectWorkingBlocks(setInputBlocks, setWorkingBlocks, mapBeforeAndAfter);
+	//set<BasicBlock *> setWorkingBlocks;
+	CollectWorkingBlocks(setType1Block, setType2Block, setWorkingBlocks, mapBeforeAndAfter);
+
+	//errs() << "working block: " << setWorkingBlocks.size() << "\n";
 
 	if(setWorkingBlocks.size() == 0)
 	{
@@ -589,7 +683,7 @@ bool Workless::IsWorkless0Or1Star(Loop * pLoop, set<BasicBlock *> & setInputBloc
 			return true;
 		}
 
-		if(setWorkingBlocks.find(*I) == setWorkingBlocks.end() && setProcessed.find(*I) == setProcessed.end() && setInputBlocks.find(*I) != setInputBlocks.end() )
+		if(setWorkingBlocks.find(*I) == setWorkingBlocks.end() && setProcessed.find(*I) == setProcessed.end() && setType1Block.find(*I) != setType1Block.end() )
 		{
 			setProcessed.insert(*I);
 			vecWorkList.push_back(*I);
@@ -602,6 +696,8 @@ bool Workless::IsWorkless0Or1Star(Loop * pLoop, set<BasicBlock *> & setInputBloc
 		BasicBlock * pCurrent = vecWorkList[vecWorkList.size()-1];
 		vecWorkList.pop_back();
 
+		//errs() << pCurrent->getName() << "\n";
+
 		for (succ_iterator I = succ_begin(pCurrent), E = succ_end(pCurrent); I != E; ++I)
 		{
 			if( pHeader == *I)
@@ -609,7 +705,7 @@ bool Workless::IsWorkless0Or1Star(Loop * pLoop, set<BasicBlock *> & setInputBloc
 				return true;
 			}
 
-			if(setWorkingBlocks.find(*I) == setWorkingBlocks.end() && setProcessed.find(*I) == setProcessed.end() && setInputBlocks.find(*I) != setInputBlocks.end() )
+			if(setWorkingBlocks.find(*I) == setWorkingBlocks.end() && setProcessed.find(*I) == setProcessed.end() && setType1Block.find(*I) != setType1Block.end() )
 			{
 				setProcessed.insert(*I);
 				vecWorkList.push_back(*I);
@@ -624,13 +720,13 @@ bool Workless::IsWorkless0Or1Star(Loop * pLoop, set<BasicBlock *> & setInputBloc
 
 
 
-void Workless::AnalyzeWorklessType(Function * pFunction, Loop * pLoop, PostDominatorTree * PDT, DominatorTree * DT)
+void Workless::AnalyzeWorklessType(Function * pFunction, Loop * pLoop)
 {
 	
 	set<BasicBlock *> setType1Blocks;
 	set<BasicBlock *> setType2Blocks;
 
-	Search2TypeBlocksInLoop(setType1Blocks, setType2Blocks, pLoop, pFunction, PDT, DT);
+	Search2TypeBlocksInLoop(setType1Blocks, setType2Blocks, pLoop, pFunction, this->PDT, this->DT);
 	//errs() << "Type 2 :" << setType2Blocks.size() << "\n";
 
 	MAPBlockBeforeAfterPair mapBeforeAndAfter;
@@ -641,15 +737,27 @@ void Workless::AnalyzeWorklessType(Function * pFunction, Loop * pLoop, PostDomin
 		errs() << "WorkLess 0*\n";
 	} 
 
+
 	if(IsWorkless0Star1(setType1Blocks, setType2Blocks, mapBeforeAndAfter))
 	{
 		errs() << "Workless 0*1?\n";
 	}
 	
-	if(IsWorkless0Or1Star(pLoop, setType1Blocks, mapBeforeAndAfter))
+
+	set<BasicBlock *> setWorkingBlocks;
+	if(IsWorkless0Or1Star(pLoop, setType1Blocks, setType2Blocks, mapBeforeAndAfter, setWorkingBlocks))
 	{
 		errs() << "Workless [0|1]*\n";
+		errs() << "Working blocks: \n";
+		set<BasicBlock *>::iterator itSetBlockBegin = setWorkingBlocks.begin();
+		set<BasicBlock *>::iterator itSetBlockEnd   = setWorkingBlocks.end();
+
+		for(; itSetBlockBegin != itSetBlockEnd; itSetBlockBegin++ )
+		{
+			errs() << "=" << (*itSetBlockBegin)->getName() << "\n";
+		}
 	}
+
 }
 
 
@@ -665,8 +773,10 @@ bool Workless::runOnModule(Module& M)
 		return false;
 	}
 
-	DominatorTree * DT = &getAnalysis<DominatorTree>(*pFunction);
-	PostDominatorTree * PDT = &getAnalysis<PostDominatorTree>(*pFunction);
+	//pFunction->dump();
+
+	this->DT = &getAnalysis<DominatorTree>(*pFunction);
+	this->PDT = &getAnalysis<PostDominatorTree>(*pFunction);
 
 	LoopInfo *pLoopInfo = &(getAnalysis<LoopInfo>(*pFunction));
 	Loop * pLoop = SearchLoopByLineNo(pFunction, pLoopInfo, uSrcLine);
@@ -683,6 +793,13 @@ bool Workless::runOnModule(Module& M)
 		ParsePureFunctionList(strPureFileName, &M);
 	}
 
+	Function * pTest = M.getFunction("get_last_value_validate");
+
+	if(this->setSideEffectFunction.find(pTest) != this->setSideEffectFunction.end())
+	{
+		errs() << "side effect\n";
+	}
+
 	//int iCount = 0;
 	for(Module::iterator FF = M.begin(); FF != M.end(); FF++)
 	{
@@ -691,7 +808,7 @@ bool Workless::runOnModule(Module& M)
 	}
 
 	//errs() << iCount << "\n":
-	AnalyzeWorklessType(pFunction, pLoop, PDT, DT);
+	AnalyzeWorklessType(pFunction, pLoop);
 
 	return false;
 }

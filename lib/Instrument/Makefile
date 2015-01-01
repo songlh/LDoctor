@@ -8,6 +8,6 @@ LEVEL=../..
 #
 # List all of the subdirectories that we will compile.
 #
-DIRS=CLInstrument
+DIRS=CLInstrument WLInstrument
 
 include $(LEVEL)/Makefile.common

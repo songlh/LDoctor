@@ -69,44 +69,18 @@ BasicBlock * SearchPostHeader(set< Edge > & setExitEdges, PostDominatorTree * pP
 	}
 
 
-/*
-	BasicBlock * pResult = NULL;
-
-	for(; itSetBegin != itSetEnd; itSetBegin ++)
-	{
-		set<Edge>::iterator itTmpBegin = setExitEdges.begin();
-		set<Edge>::iterator itTmpEnd = setExitEdges.end();
-
-		bool bFlag = true;
-		while(itTmpBegin != itTmpEnd)
-		{
-			if(itTmpBegin != itSetBegin)
-			{
-				if(!pPDT->dominates(itSetBegin->second, itTmpBegin->second))
-				{
-					bFlag = false;
-					break;
-				}
-			}
-			itTmpBegin++;
-		}
-
-		if(bFlag)
-		{
-			pResult = itSetBegin->second;
-			break;
-		}
-	}
-
-	return pResult;
-*/
-
 	set<Edge>::iterator itSetFirst = itSetBegin;
 	itSetBegin++;
-	BasicBlock * pResult = pPDT->findNearestCommonDominator(itSetFirst->second, itSetBegin->first);
+	BasicBlock * pResult = pPDT->findNearestCommonDominator(itSetFirst->second, itSetBegin->second);
+
 
 	for(; itSetBegin != itSetEnd; itSetBegin++)
 	{
+		if(pResult == NULL)
+		{
+			return pResult;
+		}
+
 		pResult = pPDT->findNearestCommonDominator(pResult, itSetBegin->second);
 	}
 
@@ -137,11 +111,10 @@ void Search2TypeBlocksInLoop(vector<BasicBlock *> & vecType1Blocks, vector<Basic
 	}
 
 	BasicBlock * pPostHeader = SearchPostHeader(setExitEdges, PDT);
-
-	if(pPostHeader == NULL)
-	{
-		return;
-	}
+	//if(pPostHeader == NULL)
+	//{
+	//	return;
+	//}
 
 	//errs() << "Post header: " << pPostHeader->getName() << "\n";
 
@@ -152,6 +125,17 @@ void Search2TypeBlocksInLoop(vector<BasicBlock *> & vecType1Blocks, vector<Basic
 
 	for(Function::iterator b = pFunction->begin(), be = pFunction->end(); b != be ; b ++ )
 	{
+		if(isa<UnreachableInst>(b->getTerminator()))
+		{
+			continue;
+		}
+
+		if(b->getName() == "" )
+		{
+			continue;
+		}
+
+
 		if(setBlocksInLoop.find(b) != setBlocksInLoop.end() )
 		{
 			continue;
@@ -162,9 +146,12 @@ void Search2TypeBlocksInLoop(vector<BasicBlock *> & vecType1Blocks, vector<Basic
 			continue;
 		}
 
-		if(!PDT->dominates(pPostHeader, b))
+		if(pPostHeader != NULL)
 		{
-			continue;
+			if(!PDT->dominates(pPostHeader, b))
+			{
+				continue;
+			}
 		}
 
 		bool bFlag = true;
