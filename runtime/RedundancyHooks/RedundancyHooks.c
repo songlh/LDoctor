@@ -9,64 +9,13 @@
 #include <time.h>
 #include <unistd.h>
 
-#define BUFFERSIZE 1 << 30
+#define BUFFERSIZE (unsigned long)1 << 32
 
-/*
-typedef struct stLoadRecord {
-	unsigned uInstructionID;
-	long LoadAddress;
-	long LoadValue;
-} LoadRecord;
-
-typedef struct stStoreRecord {
-	unsigned uInstructionID;
-	long StoreAddress;
-	long StoreValue;
-} StoreRecord;
-
-typedef struct stInstRecord {
-	unsigned uInstructionID;
-	long Value;
-} InstRecord;
-
-typedef struct stParaRecord {
-	unsigned uValueID;
-	long Value;
-} ParaRecord;
-
-typedef struct stDelimiterRecord {
-	long numExecution;
-} DelimiterRecord;
-
-typedef struct stLogRecord {
-	enum LogRecordType
-	{
-		Load,
-		Store,
-		Inst,
-		Para,
-		Delimiter
-	};
-
-	enum LogRecordType RecordType;
-
-	union {
-		LoadRecord LR;
-		StoreRecord SR;
-		InstRecord IR;
-		ParaRecord PR;
-		DelimiterRecord DR;
-	} Value;
-
-} LogRecord;
-
-*/
-
-//using namespace std;
 
 //----- Function prototypes -------------------------------------------------
 int geo(int iRate);            // Returns a geometric random variable
 static double rand_val(int seed);    // Jain's RNG
+static int old_value = -1;
 
 //===========================================================================
 //=  Function to generate geometrically distributed random variables        =
@@ -79,16 +28,21 @@ int geo(int iRate)
 	double z;                     // Uniform random number (0 < z < 1)
 	double geo_value;             // Computed geometric value to be returned
 
-	// Pull a uniform random number (0 < z < 1)
 	do
 	{
-		z = rand_val(0);
-	}
-	while ((z == 0) || (z == 1));
+		// Pull a uniform random number (0 < z < 1)
+		do
+		{
+			z = rand_val(0);
+		}
+		while ((z == 0) || (z == 1));
 
-	// Compute geometric random variable using inversion method
-	geo_value = (int) (log(z) / log(1.0 - p)) + 1;
+		// Compute geometric random variable using inversion method
+		geo_value = (int) (log(z) / log(1.0 - p)) + 1;
+	} 
+	while((int)geo_value == old_value + 1);
 
+	old_value = (int)geo_value; 
 	return(geo_value);
 }
 
@@ -130,24 +84,11 @@ static double rand_val(int seed)
 	return((double) x / m);
 }
 
-/*
-int iRecordSize;
-char * pcBuffer;
-int iBufferIndex;
-*/
+
 int fd;
 
-
-//void FinalizeMemHooks()
 void FinalizeMemHooks(int iBufferIndex) 
 {
-	/*
-	if(munmap(pcBuffer, iBufferIndex) == -1)
-	{
-		fprintf(stderr,  "munmap: %s\n", strerror(errno) );
-		exit(-1);
-	}
-	*/
 	if(ftruncate(fd, iBufferIndex) == -1)
 	{
 		fprintf(stderr,  "ftruncate: %s\n", strerror(errno) );
@@ -156,16 +97,15 @@ void FinalizeMemHooks(int iBufferIndex)
 	close(fd);
 }
 
-//static void InitMemHooks() 
 char * InitMemHooks()
 {
 	time_t T = time(NULL);
 	struct tm *LT = localtime(&T);
 	char LogFileNameCStr[1024];
 	sprintf(LogFileNameCStr, "CPI-%04d%02d%02d-%02d%02d%02d", LT->tm_year + 1900, LT->tm_mon + 1, LT->tm_mday, LT->tm_hour, LT->tm_min, LT->tm_sec);
-	//cout << LogFileNameCStr << endl;
+	
 	printf("%s\n", LogFileNameCStr);
-	//fd = open( LogFileNameCStr, O_RDWR | O_CREAT, 0777 );
+
 	fd = shm_open( LogFileNameCStr, O_RDWR | O_CREAT, 0777 );
 	if(fd == -1)
 	{	
@@ -173,76 +113,20 @@ char * InitMemHooks()
 		exit(-1);
 	}
 
-	if( ftruncate( fd, (BUFFERSIZE) ) == -1 ) 
+	if( ftruncate64( fd, (BUFFERSIZE) ) == -1 ) 
 	{
 		fprintf( stderr, "ftruncate: %s\n", strerror( errno ));
 		exit(-1);
 	}
 
 	char * pcBuffer = (char *)mmap(0, BUFFERSIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-	//iBufferIndex = 0;
-	//iRecordSize = sizeof(LogRecord);
-	//atexit(FinalizeMemHooks);
 	return pcBuffer;
 }
 
 
-/*
-void HookStore(long address, long value, unsigned InsID) {
-	LogRecord Record;
-	//Record.RecordType = LogRecord::Store;
-	Record.RecordType = Store;
-	Record.Value.SR.StoreAddress = address;
-	Record.Value.SR.StoreValue = value;
-	Record.Value.SR.uInstructionID = InsID;
-	memcpy(pcBuffer + iBufferIndex, &Record, iRecordSize);
-	iBufferIndex += iRecordSize;
-}
-
-void HookLoad(long address, long value, unsigned InsID) {
-	LogRecord Record;
-	Record.RecordType = Load;
-	Record.Value.LR.LoadAddress = address;
-	Record.Value.LR.LoadValue = value;
-	Record.Value.LR.uInstructionID = InsID;
-	memcpy(pcBuffer + iBufferIndex, &Record, iRecordSize);
-	iBufferIndex += iRecordSize;
-}
-
-
-void HookPara(long value, unsigned ValID) {
-	LogRecord Record;
-	Record.RecordType = Para;
-	Record.Value.PR.uValueID = ValID;
-	Record.Value.PR.Value = value;
-	memcpy(pcBuffer + iBufferIndex, &Record, iRecordSize);
-	iBufferIndex += iRecordSize;
-}
-
-void HookInst(long value, unsigned InstID) {
-	LogRecord Record;
-	Record.RecordType = Inst;
-	Record.Value.IR.uInstructionID = InstID;
-	Record.Value.IR.Value = value;
-	memcpy(pcBuffer + iBufferIndex, &Record, iRecordSize);
-	iBufferIndex += iRecordSize;
-}
-
-
-void HookDelimiter(long numExecution)
-{
-	LogRecord Record;
-	Record.RecordType = Delimiter;
-	Record.Value.DR.numExecution = numExecution;
-	memcpy(pcBuffer + iBufferIndex, &Record, iRecordSize);
-	iBufferIndex += iRecordSize;
-}
-*/
-
-//void InitHooks()
 char * InitHooks()
 {
-	rand_val(997);
+	rand_val(197);
 	return InitMemHooks();
 }
 

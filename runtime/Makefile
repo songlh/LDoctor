@@ -1,5 +1,5 @@
 LEVEL = ..
 
-DIRS = RedundancyHooks
+DIRS = RedundancyHooks WorklessHooks
 
 include $(LEVEL)/Makefile.common
