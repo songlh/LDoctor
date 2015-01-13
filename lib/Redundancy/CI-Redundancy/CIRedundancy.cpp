@@ -576,6 +576,7 @@ void CrossIterationRedundancy::CollectSideEffectInst(set<Instruction *> & setCal
 	for(; itCallerMapBegin != itCallerMapEnd; itCallerMapBegin ++ )
 	{
 		Function * pCurrentFunction = itCallerMapBegin->first;
+		errs() << pCurrentFunction->getName() << "\n";
 		for(Function::iterator BB = pCurrentFunction->begin(); BB != pCurrentFunction->end(); BB ++)
 		{
 			if(isa<UnreachableInst>(BB->getTerminator()))
@@ -2033,6 +2034,8 @@ void CrossIterationRedundancy::DependenceAnalysis(Function * pFunction)
 	errs() << "MemIntrinsic: " << setMemIntrics.size() << "\n";
 	errs() << "Library Call Sites: " << setCallSite.size() << "\n";
 
+	
+
 	map<Function *, set<Function *> >::iterator itCallerMapBegin = this->CallerCalleeMapping.begin();
 	map<Function *, set<Function *> >::iterator itCallerMapEnd   = this->CallerCalleeMapping.end();
 
@@ -2045,6 +2048,8 @@ void CrossIterationRedundancy::DependenceAnalysis(Function * pFunction)
 		IntraProcedureDependenceAnalysis(pCurrentFunction);
 		CallGraphMapping[itCallerMapBegin->first] = itCallerMapBegin->second;
 	}
+
+	exit(0);
 
 	//bottom-up
 	while(setProcessedFunc.size() < CallGraphMapping.size())
@@ -2199,6 +2204,7 @@ bool CrossIterationRedundancy::runOnModule(Module& M)
 
 	AnalyzeMemReadInst(pFunction);
 	int iLocal = CountLocalLoad();
+
 
 
 	if(iLocal > 0)

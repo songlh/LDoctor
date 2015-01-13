@@ -110,7 +110,7 @@ void SearchBasicBlocksByLineNo( Function * F, unsigned uLineNo, vector<BasicBloc
 			if( MDNode *N = i->getMetadata("dbg") )
 			{
 				DILocation Loc(N);
-				//errs() << Loc.getLineNumber() << "\n";
+				//errs() << Loc.getLineNumber() << " " << b->getName() << "\n";
 				if( uLineNo == Loc.getLineNumber() )
 				{
 					vecBasicBlocks.push_back(b);

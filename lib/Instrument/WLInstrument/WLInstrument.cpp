@@ -7,6 +7,7 @@
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/Dominators.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/CallSite.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
 #include <fstream>
@@ -167,6 +168,7 @@ void WorklessInstrument::InstrumentWorkless0Star1(Module * pModule, Loop * pLoop
 	else
 	{
 		pMain = pModule->getFunction("main");
+		//pMain->dump();
 	}
 
 	
@@ -181,6 +183,7 @@ void WorklessInstrument::InstrumentWorkless0Star1(Module * pModule, Loop * pLoop
 		{
 			if (isa<ReturnInst>(Ins) || isa<ResumeInst>(Ins)) 
 			{
+			
 				vector<Value*> vecParams;
 				pLoad = new LoadInst(numIterations, "", false, Ins); 
 				pLoad->setAlignment(8); 
@@ -195,8 +198,37 @@ void WorklessInstrument::InstrumentWorkless0Star1(Module * pModule, Loop * pLoop
 				AttributeSet aSet;
 				pCall->setAttributes(aSet);
 			}
+			else if(isa<CallInst>(Ins) || isa<InvokeInst>(Ins))
+			{
+				CallSite cs(Ins);
+				Function * pCalled = cs.getCalledFunction();
+
+				if(pCalled == NULL)
+				{
+					continue;
+				}
+
+				if(pCalled->getName() == "exit" || pCalled->getName() == "_ZL9mysql_endi")
+				{
+					vector<Value*> vecParams;
+					pLoad = new LoadInst(numIterations, "", false, Ins); 
+					pLoad->setAlignment(8); 
+					vecParams.push_back(pLoad);
+					pLoad = new LoadInst(numInstances, "", false, Ins); 
+					pLoad->setAlignment(8);
+					vecParams.push_back(pLoad);
+				
+					CallInst* pCall = CallInst::Create(this->PrintLoopInfo, vecParams, "", Ins);
+					pCall->setCallingConv(CallingConv::C);
+					pCall->setTailCall(false);
+					AttributeSet aSet;
+					pCall->setAttributes(aSet);
+				}
+			}
 		}
 	}
+
+	pMain->dump();
 
 	BasicBlock * pPreHeader = pLoop->getLoopPreheader();
 	if(pPreHeader == NULL)
@@ -243,7 +275,7 @@ void WorklessInstrument::InstrumentWorkless0Star1(Module * pModule, Loop * pLoop
 	pStore = new StoreInst(pAdd, this->numIterations, false, pHeader->getTerminator());
 	pStore->setAlignment(8);
 
-	pLoop->getHeader()->getParent()->dump();
+	//pLoop->getHeader()->getParent()->dump();
 }
 
 //void WorklessInstrument::InstrumentWorkless0Star1OPT(Module * pModule, Loop * pLoop)
@@ -313,6 +345,7 @@ void WorklessInstrument::InstrumentWorkless0Or1Star(Module * pModule, Loop * pLo
 	else
 	{
 		pMain = pModule->getFunction("main");
+		//pMain->dump();
 	}
 
 
@@ -431,7 +464,7 @@ void WorklessInstrument::InstrumentWorkless0Or1Star(Module * pModule, Loop * pLo
 	pStore = new StoreInst(this->ConstantLong0, this->bWorkingIteration, false, pHeader->getTerminator());
 	pStore->setAlignment(8);
 
-	pFunction->dump();
+	//pFunction->dump();
 
 }
 

@@ -26,14 +26,17 @@ struct CrossLoopInstrument : public ModulePass
 	void SetupGlobals(Module * );
 	void SetupStruct(Module *);
 
+	void InitlizeFuncSet();
+
 //
 	BasicBlock * SearchPostDominatorForLoop(Loop * pLoop,  PostDominatorTree * pPDT );
 	void CreateIfElseIfBlock(Loop * pInnerLoop, BasicBlock * pPostDominator, vector<BasicBlock *> & vecCondition);
 	void CloneInnerLoop(Loop * pLoop, BasicBlock * pPostDominator, vector<BasicBlock *> & vecAdd, ValueToValueMapTy & VMap);
+	void CloneFunctionCalled(set<BasicBlock *> & setBlocksInLoop, ValueToValueMapTy & VMap);
 	void RemapInstruction(Instruction *I, ValueToValueMapTy &VMap);
 	void ParseMonitoredInstFile(string & sFileName, Module * pModule);
-	void CollectInstrumentedInst(set<int> & setIndex, Loop * pLoop, vector<LoadInst *> & vecLoad, vector<Instruction *> & vecOut );
-	void AddHooksToInnerLoop(vector<BasicBlock *> & vecAdd, ValueToValueMapTy & VMap, vector<LoadInst *> & vecLoad, vector<Instruction *> & vecOut);
+	void CollectInstrumentedInst(set<int> & setIndex, Loop * pLoop, vector<LoadInst *> & vecLoad, vector<Instruction *> & vecIn, vector<Instruction *> & vecOut );
+	void AddHooksToInnerLoop(vector<BasicBlock *> & vecAdd, ValueToValueMapTy & VMap, vector<LoadInst *> & vecLoad, vector<Instruction *> & vecIn, vector<Instruction *> & vecOut);
 
 	void InstrumentInnerLoop(Loop * pLoop, PostDominatorTree * PDT);
 	void InstrumentOuterLoop(Loop * pLoop);
@@ -46,6 +49,10 @@ struct CrossLoopInstrument : public ModulePass
 
 //	
 	set<int> setInstIndex;
+	set<Instruction *> setMonitoredInstInCallee;
+
+
+
 	vector<pair<Function *, int> > vecParaIndex;
 	bool bGivenOuterLoop;
 
@@ -115,7 +122,10 @@ struct CrossLoopInstrument : public ModulePass
 	Constant * Output_Format_String;
 	
 	
-
+	set<string> setPureFunctions;
+	set<string> setMemoryAllocFunctions;
+	set<string> setFileIO;
+	set<string> setLibraryFunctions;
 
 
 };

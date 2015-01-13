@@ -26,17 +26,21 @@ struct Workless : public ModulePass
 	bool BlockWithoutSideEffect(BasicBlock * BB);
 	void ParsePureFunctionList(string & strFileName, Module * pM);
 
+
+
 	bool IsWorkless0Star(set<BasicBlock *> & setType1BasicBlock, set<BasicBlock *> & setType2BasicBlock, MAPBlockBeforeAfterPair & mapBeforeAndAfter );
-
 	bool IsWorkless0Star1(set<BasicBlock *> & setType1Block, set<BasicBlock *> & setType2Block, MAPBlockBeforeAfterPair & mapBeforeAndAfter);
-	void CollectWorkingBlocks(set<BasicBlock *> & setInputBlocks, set<BasicBlock *> & setWorkingBlocks, MAPBlockBeforeAfterPair & mapBeforeAndAfter);
-	bool IsWorkless0Or1Star(Loop * pLoop, set<BasicBlock *> & setInputBlocks, MAPBlockBeforeAfterPair & mapBeforeAndAfter);
+	void CollectWorkingBlocks(set<BasicBlock *> & setType1Block, set<BasicBlock *> & setType2Block, set<BasicBlock *> & setWorkingBlocks, MAPBlockBeforeAfterPair & mapBeforeAndAfter);
+	bool IsWorkless0Or1Star(Loop * pLoop, set<BasicBlock *> & setType1Block, set<BasicBlock *> & setType2Block, MAPBlockBeforeAfterPair & mapBeforeAndAfter, set<BasicBlock *> & setWorkingBlocks);
 
-	void AnalyzeWorklessType(Function * pFunction, Loop * pLoop, PostDominatorTree * PDT, DominatorTree * DT);
+	void AnalyzeWorklessType(Function * pFunction, Loop * pLoop);
 
 	void Test(Loop * pLoop);
 
 private:
+	DominatorTree * DT;
+	PostDominatorTree * PDT;
+
 	set<Function *> setPureFunction;
 	set<Function *> setSideEffectFunction;
 };

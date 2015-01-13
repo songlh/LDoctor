@@ -15,8 +15,10 @@
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/CallSite.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
+#include "llvm/Transforms/Utils/Cloning.h"
 
 using namespace std;
 using namespace llvm;
@@ -81,6 +83,28 @@ void CrossLoopInstrument::print(raw_ostream &O, const Module *M) const
 {
 	return;
 }
+
+
+void CrossLoopInstrument::InitlizeFuncSet()
+{
+	this->setPureFunctions.insert("floor_log2");
+	this->setPureFunctions.insert("exact_log2");
+	this->setPureFunctions.insert("_ZSt18_Rb_tree_incrementPSt18_Rb_tree_node_base");
+	this->setMemoryAllocFunctions.insert("ggc_alloc");
+	this->setMemoryAllocFunctions.insert("malloc");
+	this->setMemoryAllocFunctions.insert("xcalloc");
+	this->setFileIO.insert("fwrite");
+	this->setFileIO.insert("fputc");
+	this->setFileIO.insert("fgetc");
+	this->setFileIO.insert("fflush");
+	this->setFileIO.insert("fopen");
+	this->setFileIO.insert("fclose");
+
+	this->setLibraryFunctions.insert(this->setPureFunctions.begin(), this->setPureFunctions.end());
+	this->setLibraryFunctions.insert(this->setMemoryAllocFunctions.begin(), this->setMemoryAllocFunctions.end());
+	this->setLibraryFunctions.insert(this->setFileIO.begin(), this->setFileIO.end());
+}
+
 
 void CrossLoopInstrument::SetupTypes(Module * pModule)
 {
@@ -288,7 +312,6 @@ void CrossLoopInstrument::SetupHooks(Module * pModule)
 	ArgTypes.push_back(this->IntType);
 	FunctionType * Finalize_FuncTy = FunctionType::get(this->VoidType, ArgTypes, false);
 	this->FinalizeMemHooks = Function::Create(Finalize_FuncTy, GlobalValue::ExternalLinkage, "FinalizeMemHooks", pModule);
-
 }
 
 void CrossLoopInstrument::SetupGlobals(Module * pModule)
@@ -812,7 +835,7 @@ void CrossLoopInstrument::InstrumentMain(Module * pModule)
 }
 
 
-void CrossLoopInstrument::CollectInstrumentedInst(set<int> & setIndex, Loop * pLoop, vector<LoadInst *> & vecLoad, vector<Instruction *> & vecOut)
+void CrossLoopInstrument::CollectInstrumentedInst(set<int> & setIndex, Loop * pLoop, vector<LoadInst *> & vecLoad, vector<Instruction *> & vecIn, vector<Instruction *> & vecOut)
 {
 	set<BasicBlock *> setLoopBlocks;
 	for(Loop::block_iterator BB = pLoop->block_begin() ; BB != pLoop->block_end(); BB ++)
@@ -841,9 +864,15 @@ void CrossLoopInstrument::CollectInstrumentedInst(set<int> & setIndex, Loop * pL
 				}
 				else
 				{
-					//II->dump();
-					assert(isa<LoadInst>(II));
-					vecLoad.push_back(cast<LoadInst>(II));					
+					if(isa<LoadInst>(II))
+					{
+						vecLoad.push_back(cast<LoadInst>(II));
+					}					
+					else
+					{
+						assert(isa<CallInst>(II) || isa<InvokeInst>(II));
+						vecIn.push_back(II);
+					}
 				}
 			}
 		}
@@ -863,8 +892,209 @@ void CrossLoopInstrument::InstrumentOuterLoop(Loop * pOuterLoop)
 	pStore = new StoreInst(pAdd, this->numGlobalCounter, false, pHeader->getTerminator());
 	pStore->setAlignment(8);
 
+}
+
+
+void CrossLoopInstrument::CloneFunctionCalled(set<BasicBlock *> & setBlocksInLoop, ValueToValueMapTy & VMap)
+{
+	vector<Function *> vecWorkList;
+	set<Function *> toDo;
+	map<Function *, set<Instruction *> > FuncCallSiteMapping;
+
+	set<BasicBlock *>::iterator itBlockSetBegin = setBlocksInLoop.begin();
+	set<BasicBlock *>::iterator itBlockSetEnd   = setBlocksInLoop.end();
+	
+
+	for(; itBlockSetBegin != itBlockSetEnd; itBlockSetBegin ++)
+	{
+		BasicBlock * BB = * itBlockSetBegin;
+
+		if(isa<UnreachableInst>(BB->getTerminator()))
+		{
+			continue;
+		}
+
+		for(BasicBlock::iterator II = (BB)->begin(); II != (BB)->end(); II ++ )
+		{
+			if(isa<DbgInfoIntrinsic>(II))
+			{
+				continue;
+			}
+			else if(isa<InvokeInst>(II) || isa<CallInst>(II))
+			{
+				CallSite cs(II);
+				Function * pCalled = cs.getCalledFunction();
+				
+				if(pCalled == NULL)
+				{
+					continue;
+				}
+
+				if(this->setLibraryFunctions.find(pCalled->getName()) != this->setLibraryFunctions.end() )
+				{
+					continue;
+				}
+
+				if(pCalled->isDeclaration() )
+				{
+					continue;
+				}
+
+				FuncCallSiteMapping[pCalled].insert(II);
+
+				if(toDo.find(pCalled) == toDo.end() )
+				{
+					toDo.insert(pCalled);
+					vecWorkList.push_back(pCalled);
+				}
+			}
+		}
+	}
+
+	while(vecWorkList.size() > 0)
+	{
+		Function * pCurrent = vecWorkList[vecWorkList.size() -1];
+		vecWorkList.pop_back();
+
+		for(Function::iterator BB = pCurrent->begin(); BB != pCurrent->end(); BB ++  )
+		{
+			if(isa<UnreachableInst>(BB->getTerminator()))
+			{
+				continue;
+			}
+
+			for(BasicBlock::iterator II = BB->begin(); II != BB->end(); II ++ )
+			{
+				if(isa<DbgInfoIntrinsic>(II))
+				{
+					continue;
+				}
+				else if(isa<InvokeInst>(II) || isa<CallInst>(II))
+				{
+					CallSite cs(II);
+					Function * pCalled = cs.getCalledFunction();
+				
+					if(pCalled == NULL)
+					{
+						continue;
+					}
+
+					if(this->setLibraryFunctions.find(pCalled->getName()) != this->setLibraryFunctions.end() )
+					{
+						continue;
+					}
+
+					if(pCalled->isDeclaration() )
+					{
+						continue;
+					}
+
+					FuncCallSiteMapping[pCalled].insert(II);
+
+					if(toDo.find(pCalled) == toDo.end() )
+					{
+						toDo.insert(pCalled);
+						vecWorkList.push_back(pCalled);
+					}
+				}
+
+				MDNode *Node = II->getMetadata("ins_id");
+
+				if(!Node)
+				{
+					continue;
+				}
+			
+				assert(Node->getNumOperands() == 1);
+				ConstantInt *CI = dyn_cast<ConstantInt>(Node->getOperand(0));
+				assert(CI);
+			
+				if(this->setInstIndex.find(CI->getZExtValue()) != this->setInstIndex.end())
+				{
+					this->setMonitoredInstInCallee.insert(II);
+				}
+
+			}
+		}
+	}
+
+	
+	set<Function *>::iterator itSetFuncBegin = toDo.begin();
+	set<Function *>::iterator itSetFuncEnd   = toDo.end();
+
+	ValueToValueMapTy VCalleeMap;
+
+	for(; itSetFuncBegin != itSetFuncEnd; itSetFuncBegin ++ )
+	{
+
+		Function * rawFunction = *itSetFuncBegin;
+		Function * duplicateFunction = CloneFunction(rawFunction, VCalleeMap, false);
+		duplicateFunction->setName(rawFunction->getName() + ".CPI");
+		duplicateFunction->setLinkage(GlobalValue::InternalLinkage);
+		rawFunction->getParent()->getFunctionList().push_back(duplicateFunction);
+
+		VCalleeMap[rawFunction] = duplicateFunction;
+	}
+
+
+	itSetFuncBegin = toDo.begin();
+
+	for(; itSetFuncBegin != itSetFuncEnd; itSetFuncBegin ++ )
+	{
+		set<Instruction *>::iterator itSetInstBegin = FuncCallSiteMapping[*itSetFuncBegin].begin();
+		set<Instruction *>::iterator itSetInstEnd   = FuncCallSiteMapping[*itSetFuncBegin].end();
+
+		ValueToValueMapTy::iterator FuncIt = VCalleeMap.find(*itSetFuncBegin);
+		assert(FuncIt != VCalleeMap.end());
+
+		Function * clonedFunction = cast<Function>(FuncIt->second);
+
+		for(; itSetInstBegin != itSetInstEnd; itSetInstBegin ++ )
+		{
+			ValueToValueMapTy::iterator It = VCalleeMap.find(*itSetInstBegin);
+			if (It != VCalleeMap.end())
+			{
+				if(CallInst * pCall = dyn_cast<CallInst>(It->second) )
+				{
+					pCall->setCalledFunction(clonedFunction);
+				}
+				else if(InvokeInst * pInvoke = dyn_cast<InvokeInst>(It->second))
+				{
+					pInvoke->setCalledFunction(clonedFunction);
+				}
+			}
+
+			It = VMap.find(*itSetInstBegin);
+
+			if(It != VMap.end())
+			{
+				if(CallInst * pCall = dyn_cast<CallInst>(It->second) )
+				{
+					pCall->setCalledFunction(clonedFunction);
+				}
+				else if(InvokeInst * pInvoke = dyn_cast<InvokeInst>(It->second))
+				{
+					pInvoke->setCalledFunction(clonedFunction);
+				}
+			}
+		}
+	}
+
+	set<Instruction *>::iterator itMonInstBegin = this->setMonitoredInstInCallee.begin();
+	set<Instruction *>::iterator itMonInstEnd   = this->setMonitoredInstInCallee.end();
+
+	for(; itMonInstBegin != itMonInstEnd ; itMonInstBegin ++ )
+	{
+		assert(isa<LoadInst>(*itMonInstBegin));
+		ValueToValueMapTy::iterator It = VCalleeMap.find(*itMonInstBegin);
+		assert(It != VCalleeMap.end());
+		InlineHookLoad(cast<LoadInst>(It->second));
+	}
+
+	
 	
 }
+
 
 BasicBlock * CrossLoopInstrument::SearchPostDominatorForLoop(Loop * pLoop,  PostDominatorTree * pPDT )
 {
@@ -894,14 +1124,15 @@ void CrossLoopInstrument::CreateIfElseIfBlock(Loop * pInnerLoop, BasicBlock * pP
 {
 	BasicBlock * pCondition1 = NULL;
 	BasicBlock * pCondition2 = NULL;
-	BasicBlock * pCondition3 = NULL;
-
+	
 	BasicBlock * pElseBody = NULL;
+
 	BasicBlock * pIfBody = NULL;
 
 	LoadInst * pLoad1 = NULL;
 	LoadInst * pLoad2 = NULL;
 	ICmpInst * pCmp = NULL; 
+	
 	BinaryOperator * pBinary = NULL;
 	TerminatorInst * pTerminator = NULL;
 	BranchInst * pBranch = NULL;
@@ -914,6 +1145,7 @@ void CrossLoopInstrument::CreateIfElseIfBlock(Loop * pInnerLoop, BasicBlock * pP
 
 	SmallVector<BasicBlock*, 8> OutsideBlocks;
 	BasicBlock * pHeader = pInnerLoop->getHeader();
+
 	for(pred_iterator PI = pred_begin(pHeader), PE = pred_end(pHeader); PI != PE; ++PI)
 	{
 		BasicBlock *P = *PI;
@@ -940,10 +1172,10 @@ void CrossLoopInstrument::CreateIfElseIfBlock(Loop * pInnerLoop, BasicBlock * pP
 	}
 
 	pCondition2 = BasicBlock::Create(pModule->getContext(), ".if2.CPI", pInnerFunction, 0);
-	pCondition3 = BasicBlock::Create(pModule->getContext(), ".if3.CPI", pInnerFunction, 0);
-
+	
 	pIfBody = BasicBlock::Create(pModule->getContext(), ".if.body.CPI", pInnerFunction, 0);
 	pElseBody = BasicBlock::Create(pModule->getContext(), ".else.body.CPI", pInnerFunction, 0);
+
 
 	pTerminator = pCondition1->getTerminator();
 
@@ -965,18 +1197,15 @@ void CrossLoopInstrument::CreateIfElseIfBlock(Loop * pInnerLoop, BasicBlock * pP
 	pLoad1->setAlignment(4);
 	pLoad2 = new LoadInst(this->CURRENT_SAMPLE, "", false, pTerminator);
 	pLoad2->setAlignment(4);
-	pCmp = new ICmpInst(pTerminator, ICmpInst::ICMP_NE, pLoad1, pLoad2, "");
-	pBranch = BranchInst::Create(pCondition2, pElseBody, pCmp );
+	pCmp = new ICmpInst(pTerminator, ICmpInst::ICMP_SLT, pLoad1, pLoad2, "");
+	pBranch = BranchInst::Create(pHeader, pCondition2, pCmp );
 	ReplaceInstWithInst(pTerminator, pBranch);
 
-	pBinary = BinaryOperator::Create(Instruction::Add, pLoad2, this->ConstantInt1, "", pCondition2);
-	pCmp = new ICmpInst(*pCondition2, ICmpInst::ICMP_NE, pLoad1, pBinary, "");
-	BranchInst::Create(pCondition3, pElseBody, pCmp, pCondition2);
 
-	//condition3
-	pBinary = BinaryOperator::Create(Instruction::Add, pLoad2, this->ConstantInt2, "", pCondition3);
-	pCmp = new ICmpInst(*pCondition3, ICmpInst::ICMP_EQ, pLoad1, pBinary, "");
-	BranchInst::Create(pIfBody, pHeader, pCmp, pCondition3);
+	//condition2
+	pBinary = BinaryOperator::Create(Instruction::Add, pLoad2, this->ConstantInt1, "", pCondition2);
+	pCmp = new ICmpInst(*pCondition2, ICmpInst::ICMP_EQ, pLoad1, pBinary, "");
+	BranchInst::Create(pIfBody, pElseBody, pCmp, pCondition2);
 
 	//
 	pLoad1 = new LoadInst(this->SAMPLE_RATE, "", false, pIfBody);
@@ -990,10 +1219,11 @@ void CrossLoopInstrument::CreateIfElseIfBlock(Loop * pInnerLoop, BasicBlock * pP
 
   	pStore = new StoreInst(this->ConstantInt0, this->numGlobalCounter, false, pIfBody);
   	pStore->setAlignment(4);
-  	BranchInst::Create(pHeader, pIfBody);
+  	BranchInst::Create(pElseBody, pIfBody);
 
   	BranchInst::Create(pPostDominator, pElseBody);
 
+/*
 	for(BasicBlock::iterator II = pHeader->begin(); II != pHeader->end(); II ++)
 	{
 		if(PHINode * pPHI = dyn_cast<PHINode>(II))
@@ -1022,11 +1252,10 @@ void CrossLoopInstrument::CreateIfElseIfBlock(Loop * pInnerLoop, BasicBlock * pP
 
 		}
 	}
-
+*/
 
 	vecAdded.push_back(pCondition1);
 	vecAdded.push_back(pCondition2);
-	vecAdded.push_back(pCondition3);
 	vecAdded.push_back(pIfBody);
 	vecAdded.push_back(pElseBody);
 
@@ -1132,9 +1361,10 @@ void CrossLoopInstrument::CloneInnerLoop(Loop * pLoop, BasicBlock * pPostDominat
 	}
 
 	//add to the else if body
-	BasicBlock * pCondition3 = vecAdd[2];
-	BasicBlock * pIfBody     = vecAdd[3];
-	BasicBlock * pElseBody   = vecAdd[4];
+	BasicBlock * pCondition1 = vecAdd[0];
+	//BasicBlock * pCondition2 = vecAdd[1];
+	//BasicBlock * pIfBody     = vecAdd[2];
+	BasicBlock * pElseBody   = vecAdd[3];
 
 
 	pBranch = dyn_cast<BranchInst>(pElseBody->getTerminator());
@@ -1148,20 +1378,13 @@ void CrossLoopInstrument::CloneInnerLoop(Loop * pLoop, BasicBlock * pPostDominat
 			vector<int> vecToRemoved;
 			for (unsigned i = 0, e = pPHI->getNumIncomingValues(); i != e; ++i) 
 			{
-				if(pPHI->getIncomingBlock(i) == pCondition3)
+				if(pPHI->getIncomingBlock(i) == pCondition1)
 				{
 					pPHI->setIncomingBlock(i, pElseBody);
 				}
-				else if(pPHI->getIncomingBlock(i) == pIfBody)
-				{
-					vecToRemoved.push_back(i);
-				}
+
 			}
 
-			for(unsigned i = 0; i < vecToRemoved.size(); ++i )
-			{
-				pPHI->removeIncomingValue(vecToRemoved[i] - i, true);
-			}
 		}
 	}
 
@@ -1268,21 +1491,23 @@ void CrossLoopInstrument::CloneInnerLoop(Loop * pLoop, BasicBlock * pPostDominat
 		}
 	}
 
+	//pFunction->dump();
+
 }
 
-void CrossLoopInstrument::AddHooksToInnerLoop(vector<BasicBlock *> & vecAdd, ValueToValueMapTy & VMap, vector<LoadInst *> & vecLoad, vector<Instruction *> & vecOut)
+void CrossLoopInstrument::AddHooksToInnerLoop(vector<BasicBlock *> & vecAdd, ValueToValueMapTy & VMap, vector<LoadInst *> & vecLoad, vector<Instruction *> & vecIn, vector<Instruction *> & vecOut)
 {
 
-	
-
-
-	BasicBlock * pElseBody = vecAdd[4];
+	BasicBlock * pCondition2 = vecAdd[1];
+	BasicBlock * pElseBody = vecAdd[3];
 	Function * pCurrent = pElseBody->getParent();
 
 	AttributeSet attSet;
-	TerminatorInst * pTerminator = pElseBody->getTerminator();
+	TerminatorInst * pTerminator = pCondition2->getTerminator();
 
 	InlineHookDelimit(pTerminator);
+
+	pTerminator = pElseBody->getTerminator();
 	vector<pair<Function *, int> >::iterator itParaBegin = this->vecParaIndex.begin();
 	vector<pair<Function *, int> >::iterator itParaEnd   = this->vecParaIndex.end();
 
@@ -1302,6 +1527,7 @@ void CrossLoopInstrument::AddHooksToInnerLoop(vector<BasicBlock *> & vecAdd, Val
 
 		if(pCurrent == itParaBegin->first)
 		{
+			
 			InlineHookPara(pArg, pTerminator);
 		}
 	}
@@ -1309,9 +1535,6 @@ void CrossLoopInstrument::AddHooksToInnerLoop(vector<BasicBlock *> & vecAdd, Val
 	vector<Instruction *>::iterator itInstVecBegin = vecOut.begin();
 	vector<Instruction *>::iterator itInstVecEnd = vecOut.end();
 	
-
-	
-
 	for(; itInstVecBegin != itInstVecEnd; itInstVecBegin ++ )
 	{
 		InlineHookInst(*itInstVecBegin, pTerminator);
@@ -1323,29 +1546,47 @@ void CrossLoopInstrument::AddHooksToInnerLoop(vector<BasicBlock *> & vecAdd, Val
 	for(; itLoadVecBegin != itLoadVecEnd; itLoadVecBegin++ )
 	{
 		LoadInst * pLoad = cast<LoadInst>(VMap[*itLoadVecBegin]);
-		//pLoad->dump();
 		InlineHookLoad(pLoad);
 	}
 	
+	vector<Instruction *>::iterator itInstInBegin = vecIn.begin();
+	vector<Instruction *>::iterator itInstInEnd   = vecIn.end();
+
+	for(; itInstInBegin != itInstInEnd; itInstInBegin ++ )
+	{
+		Instruction * pInst = cast<Instruction>(VMap[*itInstInBegin]);
+		InlineHookInst(pInst, pInst->getParent()->getTerminator());
+	}
 }
 
 
 void CrossLoopInstrument::InstrumentInnerLoop(Loop * pInnerLoop, PostDominatorTree * PDT)
 {
-	pInnerLoop->dump();
+	set<BasicBlock *> setBlocksInLoop;
+
+	for(Loop::block_iterator BB = pInnerLoop->block_begin(); BB != pInnerLoop->block_end(); BB ++ )
+	{
+		setBlocksInLoop.insert(*BB);
+	}
+
+
 	vector<LoadInst *> vecLoad;
+	vector<Instruction *> vecIn;
 	vector<Instruction *> vecOut;
-	CollectInstrumentedInst(this->setInstIndex, pInnerLoop, vecLoad, vecOut);
+
+	CollectInstrumentedInst(this->setInstIndex, pInnerLoop, vecLoad, vecIn, vecOut);
 
 	BasicBlock * pPostDominator = SearchPostDominatorForLoop(pInnerLoop, PDT);
 
 	vector<BasicBlock *> vecAdd;
 	CreateIfElseIfBlock(pInnerLoop, pPostDominator, vecAdd);
+
 	
 	ValueToValueMapTy VMap;
 	CloneInnerLoop(pInnerLoop, pPostDominator, vecAdd, VMap);
-	AddHooksToInnerLoop(vecAdd, VMap, vecLoad, vecOut);
 
+	AddHooksToInnerLoop(vecAdd, VMap, vecLoad, vecIn, vecOut);
+	CloneFunctionCalled(setBlocksInLoop, VMap);
 }
 
 void CrossLoopInstrument::ParseMonitoredInstFile(string & sFileName, Module * pModule)
@@ -1357,7 +1598,11 @@ void CrossLoopInstrument::ParseMonitoredInstFile(string & sFileName, Module * pM
 	{
 		while (getline(iFile,line))
 		{
-			if(line.find("Func") == 0 )
+			if(line.find("//--") == 0)
+			{
+				continue;
+			}
+			else if(line.find("Func") == 0 )
 			{
 				if(line.find(':') == string::npos )
 				{
@@ -1365,10 +1610,10 @@ void CrossLoopInstrument::ParseMonitoredInstFile(string & sFileName, Module * pM
 				}
 
 				string sIndex = line.substr(0, line.find(':'));
-				string buf; // Have a buffer string
-				stringstream ss(sIndex); // Insert the string into a stream
+				string buf; 
+				stringstream ss(sIndex); 
 
-    			vector<string> tokens; // Create vector to hold our words
+    			vector<string> tokens; 
 
 				while (ss >> buf)
 					tokens.push_back(buf);
@@ -1380,7 +1625,6 @@ void CrossLoopInstrument::ParseMonitoredInstFile(string & sFileName, Module * pM
 				pairTmp.first = pFunction;
 				pairTmp.second = iParaID;
 				vecParaIndex.push_back(pairTmp);
-				//errs() << pFunction->getName() << " " << iParaID << "\n";
 				
 			}
 			else if(line.find("Inst") == 0)
@@ -1408,6 +1652,7 @@ void CrossLoopInstrument::ParseMonitoredInstFile(string & sFileName, Module * pM
 		errs() << "Failed to open the inst-monitor-file\n";
 	}
 
+	
 /*
 	set<int>::iterator itSetBegin = this->setInstIndex.begin();
 	set<int>::iterator itSetEnd   = this->setInstIndex.end();
@@ -1423,7 +1668,6 @@ void CrossLoopInstrument::ParseMonitoredInstFile(string & sFileName, Module * pM
 
 bool CrossLoopInstrument::runOnModule(Module& M)
 {
-
 	if( strOuterFileName != "" )
 	{
 		Function * pOuterFunction = SearchFunctionByName(M, strOuterFileName, strOuterFuncName, uOuterSrcLine);
@@ -1449,7 +1693,7 @@ bool CrossLoopInstrument::runOnModule(Module& M)
 		this->bGivenOuterLoop = false;
 	}
 
-
+	InitlizeFuncSet();
 	ParseMonitoredInstFile(strMonitorInstFile, &M);
 
 	SetupTypes(&M);
@@ -1465,7 +1709,9 @@ bool CrossLoopInstrument::runOnModule(Module& M)
 		InstrumentOuterLoop(this->pOuterLoop);
 	}
 
+
 	Function * pInnerFunction = SearchFunctionByName(M, strInnerFileName, strInnerFuncName, uInnerSrcLine);
+	//pInnerFunction->dump();
 	if(pInnerFunction == NULL)
 	{
 		errs() << "Cannot find the function containing the inner loop!\n";
@@ -1481,11 +1727,10 @@ bool CrossLoopInstrument::runOnModule(Module& M)
 		errs() << "Cannot find the inner loop!\n";
 		return false;
 	}
-	
-	
+	//pInnerLoop->dump();
 	InstrumentInnerLoop(pInnerLoop, PDT);
 	
-	//pInnerFunction->dump();
+	
 	return true;
 }
 

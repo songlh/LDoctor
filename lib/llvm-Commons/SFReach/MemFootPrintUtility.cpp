@@ -413,6 +413,7 @@ bool BeInputArgument(Value * V)
 
 bool BeLocalObject(Value * V)
 {
+
 	if(isa<AllocaInst>(V))
 	{
 		return true;
@@ -432,6 +433,7 @@ bool BeLocalObject(Value * V)
 	while(vecWorkList.size()>0)
 	{
 		Instruction * pCurrent = vecWorkList[vecWorkList.size()-1];
+		//pCurrent->dump();
 		vecWorkList.pop_back();
 
 		if(isa<AllocaInst>(pCurrent))

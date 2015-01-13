@@ -95,6 +95,7 @@ bool Workless::CollectSideEffectFunction(Function * pFunction)
 	while(vecWorkList.size())
 	{
 		Function * pCurrent = vecWorkList[vecWorkList.size()-1];
+
 		vecWorkList.pop_back();
 
 		if(this->setPureFunction.find(pCurrent) != this->setPureFunction.end())
@@ -242,16 +243,22 @@ bool Workless::CollectSideEffectFunction(Function * pFunction)
 
 bool Workless::BlockWithoutSideEffect(BasicBlock * BB)
 {
+	//errs() << BB->getName() << "\n";
+	//BB->dump();
 	if(isa<UnreachableInst>(BB->getTerminator()))
 	{
 		return true;
+		//errs() << "here" <<"\n";
 	}
 
 
 	for(BasicBlock::iterator II = BB->begin(); II != BB->end(); II ++ )
 	{
+		//II->dump();
+		//errs() << isa<MemIntrinsic>(II) << " " << isa<CallInst>(II) << "\n";
 		if(IntrinsicInst * pIntr = dyn_cast<IntrinsicInst>(II))
 		{
+			//pIntr->dump();
 			if(PureIntrinsic(pIntr))
 			{
 				continue;
@@ -267,6 +274,11 @@ bool Workless::BlockWithoutSideEffect(BasicBlock * BB)
 			Function * pCalledFunction = cs.getCalledFunction();
 
 			if(pCalledFunction == NULL)
+			{
+				return false;
+			}
+
+			if(pCalledFunction->isDeclaration() )
 			{
 				return false;
 			}
@@ -354,6 +366,8 @@ bool Workless::IsWorkless0Star(set<BasicBlock *> & setType1BasicBlock, set<Basic
 
 	for(; itSetBlockBegin != itSetBlockEnd; itSetBlockBegin ++)
 	{
+		 //(*itSetBlockBegin)->dump() ;
+		 //errs() << BlockWithoutSideEffect(*itSetBlockBegin) << "\n";
 		if(!BlockWithoutSideEffect(*itSetBlockBegin))
 		{
 			return false;
@@ -421,6 +435,11 @@ bool Workless::IsWorkless0Star1(set<BasicBlock *> & setType1Block, set<BasicBloc
 		}
 	}
 
+	if(setType2Block.size() == 0)
+	{
+		return false;
+	}
+
 	itSetBlockBegin = setType2Block.begin();
 	itSetBlockEnd   = setType2Block.end();
 
@@ -443,13 +462,16 @@ bool Workless::IsWorkless0Star1(set<BasicBlock *> & setType1Block, set<BasicBloc
 	set<Edge>::iterator itSetEdgeBegin = setExitEdge.begin();
 	set<Edge>::iterator itSetEdgeEnd   = setExitEdge.end();
 
+	bool pureEdge = false;
+
 	for(; itSetEdgeBegin != itSetEdgeEnd; itSetEdgeBegin ++)
 	{
 		SETBefore setBefore = mapBeforeAndAfter[(*itSetEdgeBegin).second].first[(*itSetEdgeBegin).first]; 
-		//errs() << (*itSetEdgeBegin).first->getName() << "->" << (*itSetEdgeBegin).second->getName() << "\n";
+		
 		SETBefore::iterator itSetBegin = setBefore.begin();
 		SETBefore::iterator itSetEnd = setBefore.end();
-		//(*itSetBegin)->dump();
+		
+		bool bFlag = true;
 
 		for(; itSetBegin != itSetEnd; itSetBegin++ )
 		{
@@ -457,6 +479,7 @@ bool Workless::IsWorkless0Star1(set<BasicBlock *> & setType1Block, set<BasicBloc
 			{
 				if(setType2Block.find((*itSetEdgeBegin).first) != setType2Block.end() )
 				{
+					bFlag = false;
 					continue;
 				}
 				else
@@ -466,15 +489,27 @@ bool Workless::IsWorkless0Star1(set<BasicBlock *> & setType1Block, set<BasicBloc
 			}
 			else if(setType2Block.find((*itSetBegin)->getParent()) != setType2Block.end() )
 			{
+				bFlag = false;
 				continue;
 			}
+		}
 
-
+		if(bFlag)
+		{
+			pureEdge = true;
 		}
 
 	}
 
-	return true;
+	if(pureEdge)
+	{
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+
 }
 
 void Workless::CollectWorkingBlocks(set<BasicBlock *> & setType1Block, set<BasicBlock *> & setType2Block, set<BasicBlock *> & setWorkingBlocks, MAPBlockBeforeAfterPair & mapBeforeAndAfter)
@@ -501,10 +536,10 @@ void Workless::CollectWorkingBlocks(set<BasicBlock *> & setType1Block, set<Basic
 
 	for(; itSetEdgeBegin != itSetEdgeEnd; itSetEdgeBegin ++ )
 	{
-		if(setType2Block.find(itSetEdgeBegin->second) != setType2Block.end() )
-		{
-			continue;
-		}
+		//if(setType2Block.find(itSetEdgeBegin->second) != setType2Block.end() )
+		//{
+		//	continue;
+		//}
 
 		SETBefore setBefore = mapBeforeAndAfter[itSetEdgeBegin->second].first[itSetEdgeBegin->first];
 		//errs() << itSetEdgeBegin->first->getName() << "->" << itSetEdgeBegin->second->getName() << "\n";
@@ -516,10 +551,28 @@ void Workless::CollectWorkingBlocks(set<BasicBlock *> & setType1Block, set<Basic
 		{
 			if( setType1Block.find( ( *itSetBegin)->getParent() ) != setType1Block.end() )
 			{
-				//(*itSetBegin)->dump();
+				
+				bool bFlag = true;
+
+				for(Value::use_iterator  ubb = (*itSetBegin)->use_begin(); ubb != (*itSetBegin)->use_end(); ubb ++ )
+				{
+					if(setType1Block.find((cast<Instruction>(*ubb))->getParent()) == setType1Block.end() && setType2Block.find((cast<Instruction>(*ubb))->getParent()) == setType2Block.end() )
+					{
+						bFlag= false;
+						break;
+					}
+				}
+
+				if(bFlag)
+				{
+					continue;
+				}
+
+
 
 				if(PHINode * pPHINode = dyn_cast<PHINode>(*itSetBegin))
 				{
+					//(*itSetBegin)->dump();
 					vector<PHINode *> vecPendingPHIInstructions;
 					set<PHINode *> setHandledPHIInstructions;
 					for(unsigned int i = 0 ; i < pPHINode->getNumIncomingValues(); i++)
@@ -566,6 +619,7 @@ void Workless::CollectWorkingBlocks(set<BasicBlock *> & setType1Block, set<Basic
 						PHINode * pPHICurrent = vecPendingPHIInstructions[vecPendingPHIInstructions.size() -1 ];
 						vecPendingPHIInstructions.pop_back();
 
+						//pPHICurrent->dump();
 						for(unsigned int i = 0 ; i < pPHICurrent->getNumIncomingValues(); i++)
 						{
 							if(setType1Block.find(pPHICurrent->getIncomingBlock(i)) != setType1Block.end())
@@ -652,6 +706,15 @@ void Workless::CollectWorkingBlocks(set<BasicBlock *> & setType1Block, set<Basic
 		}
 	}
 
+/*
+	set<BasicBlock *>::iterator itSetBlockBegin = setWorkingBlocks.begin();
+	set<BasicBlock *>::iterator itSetBlockEnd   = setWorkingBlocks.end();
+
+	for(; itSetBlockBegin != itSetBlockEnd; itSetBlockBegin ++)
+	{
+		errs() << (*itSetBlockBegin)->getName() << "\n";
+	}
+	*/
 }
 
 
@@ -662,17 +725,23 @@ bool Workless::IsWorkless0Or1Star(Loop * pLoop, set<BasicBlock *> & setType1Bloc
 
 	//errs() << "working block: " << setWorkingBlocks.size() << "\n";
 
+
+
 	if(setWorkingBlocks.size() == 0)
 	{
 		return false;
 	}
 
+	
 	BasicBlock * pHeader = pLoop->getHeader();
+	//pHeader->dump();
 	if(setWorkingBlocks.find(pHeader) != setWorkingBlocks.end())
 	{
 		return false;
 	}
 
+
+	
 	vector<BasicBlock *> vecWorkList;
 	set<BasicBlock *> setProcessed;
 
@@ -683,14 +752,19 @@ bool Workless::IsWorkless0Or1Star(Loop * pLoop, set<BasicBlock *> & setType1Bloc
 			return true;
 		}
 
+
+
 		if(setWorkingBlocks.find(*I) == setWorkingBlocks.end() && setProcessed.find(*I) == setProcessed.end() && setType1Block.find(*I) != setType1Block.end() )
 		{
 			setProcessed.insert(*I);
 			vecWorkList.push_back(*I);
+
 		}
 	}
 
 
+
+	
 	while(vecWorkList.size() > 0)
 	{
 		BasicBlock * pCurrent = vecWorkList[vecWorkList.size()-1];
@@ -728,6 +802,7 @@ void Workless::AnalyzeWorklessType(Function * pFunction, Loop * pLoop)
 
 	Search2TypeBlocksInLoop(setType1Blocks, setType2Blocks, pLoop, pFunction, this->PDT, this->DT);
 	//errs() << "Type 2 :" << setType2Blocks.size() << "\n";
+
 
 	MAPBlockBeforeAfterPair mapBeforeAndAfter;
 	PreciseLiveAnalysis(mapBeforeAndAfter, pFunction);
@@ -780,34 +855,36 @@ bool Workless::runOnModule(Module& M)
 
 	LoopInfo *pLoopInfo = &(getAnalysis<LoopInfo>(*pFunction));
 	Loop * pLoop = SearchLoopByLineNo(pFunction, pLoopInfo, uSrcLine);
+
+	//pLoop->dump();
 	if(pLoop == NULL)
 	{
 		errs() << "Cannot find the input loop\n";
 		return false;
 	}
 
-	//pLoop->dump();
-
 	if(strPureFileName != "")
 	{
 		ParsePureFunctionList(strPureFileName, &M);
 	}
 
-	Function * pTest = M.getFunction("get_last_value_validate");
 
-	if(this->setSideEffectFunction.find(pTest) != this->setSideEffectFunction.end())
-	{
-		errs() << "side effect\n";
-	}
-
-	//int iCount = 0;
 	for(Module::iterator FF = M.begin(); FF != M.end(); FF++)
 	{
 		CollectSideEffectFunction(FF);
-		//iCount ++;
 	}
 
-	//errs() << iCount << "\n":
+	
+
+/*
+	set<Function *>::iterator itSetBegin = this->setSideEffectFunction.begin();
+	set<Function *>::iterator itSetEnd   = this->setSideEffectFunction.end();
+
+	for(; itSetBegin != itSetEnd; itSetBegin++ )
+	{
+		errs() << (*itSetBegin)->getName() <<  "\n";
+	}
+*/
 	AnalyzeWorklessType(pFunction, pLoop);
 
 	return false;
