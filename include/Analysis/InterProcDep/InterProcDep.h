@@ -54,7 +54,7 @@ public:
 	void TopDownDependenceAnalysis(Function * pFunction, Function * pStart);
 
 	void NoneRecursiveDependenceAnalysis(Function * pFunction );
-
+	void InfeasiblePathDependenceAnalysis(Function * pFunction);
 	
 
 
@@ -93,12 +93,18 @@ private:
 
 	set<string> setPureFunctions;
 	set<string> setMemoryAllocFunctions;
+	set<string> setTransparentFunctions;
+	set<string> setStoppedFunctions;
+
+
 	set<string> setFileIO;
 	set<string> setLibraryFunctions;
 
 	//load and memintrisc dependence
 	map<LoadInst *, set<Instruction *> > LoadDependentInstMapping;
 	map<MemTransferInst *, set<Instruction *> > MemInstDependentInstMapping;
+
+	Module * pModule;
 
 };
 

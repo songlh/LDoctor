@@ -955,9 +955,9 @@ void CrossLoopRedundancy::LoopDependenceAnalysis(Loop * pLoop, set<Value *> & se
 				}
 			}
 		}
-
-
 	}
+
+	
 
 }
 

@@ -33,14 +33,14 @@ def EditDistance(seqA, seqB):
         d[0][j] = j
        
     for i in range(1, len(seqA) + 1):
-        print i
+        #print i
         for j in range(1, len(seqB) + 1):
             if seqA[i-1] == seqB[j-1]:
                 d[i][j] = d[i-1][j-1]
             else:
                 d[i][j] = minimun(d[i-1][j], d[i-1][j-1], d[i][j-1]) + 1
                 
-                
+          
     return d[len(seqA)][len(seqB)]
        
 
@@ -59,16 +59,24 @@ def EditDistance2(seqA, seqB):
             print i
         last = index
         index = (index + 1) % 2
+
         for j in range(1, len(seqB) + 1):
             if seqA[i-1] == seqB[j-1]:
-                d[index][j] = d[last][j-1]
+                
+                if j == 1:
+                    d[index][j] = i -1
+                else:
+                    d[index][j] = d[last][j-1]
+                
             else:
                 if j == 1:
+                    
                     d[index][j] = minimun(d[last][j], i-1, i) + 1
+                    
                 else:
+                   
                     d[index][j] = minimun(d[last][j], d[last][j-1], d[index][j-1]) + 1
 
-        
         
     return d[index][len(seqB)]
 
@@ -175,8 +183,14 @@ def CompTwoConsecutiveInstances(InstanceA, InstanceB, setDifferentPara, setDiffe
 
 
 if __name__=='__main__':
-	
-    
+
+    strA = 'abcdefgaaaaaaaaaaaaaaa'
+    strB = 'a'
+    print EditDistance(strB, strA)
+    print EditDistance(strA, strB)
+    print EditDistance2(strB, strA)
+    print EditDistance2(strA, strB)
+    exit(0)
 
     file_list = [ f for f in listdir('/dev/shm') if isfile(join('/dev/shm',f)) ]
     
