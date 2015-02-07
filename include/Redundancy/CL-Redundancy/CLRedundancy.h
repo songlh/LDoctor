@@ -29,26 +29,21 @@ struct CrossLoopRedundancy : public ModulePass
 	void InitializeMemoryAllocFunctionSet();
 	void InitializeFileIOFunctionSet();
 	void InitializeLibraryFunctionSet();
-	void CollectCalleeInsideInnerLoop(Loop* pLoop);
+	//void CollectCalleeInsideInnerLoop(Loop* pLoop);
 	void CollectSideEffectInstructionInsideLoop(Loop * pLoop, set<Instruction *> & setSideEffectInst);
 
 
 	void DumpInterProcDepResult();
 
+	void CalDependenceForSEInst(Loop * pLoop, set<Instruction *> & SEInst, set<Value *> & setDependentValue, ControlDependenceGraphBase & CDG);
 	void LoopDependenceAnalysis(Loop * pLoop, set<Value *> & setValueInput, set<Value *> & setDependentValue, ControlDependenceGraphBase & CDG);
 	
 	void LoopDependenceAnalysis(Loop * pLoop, set<Value *> & setDependentValue, PostDominatorTree * PDT);
 	void CollectSideEffectInstruction(Loop * pLoop, set<Instruction *> & setSideEffectInst);
 
-
-
-	
-
 private:
-	set<string> setPureFunctions;
-	set<string> setMemoryAllocFunctions;
-	set<string> setFileIO;
-	set<string> setLibraryFunctions;
+
+	map<Function *, LibraryFunctionType>  LibraryTypeMapping;
 
 	set<Function *> setCallee;
 	map<Function *, set<Instruction *> > CalleeCallSiteMapping;

@@ -7,7 +7,7 @@ LEVEL=../../..
 #
 # Give the name of a library.  This will build a dynamic version.
 #
-LIBRARYNAME=CLRedundancy
+LIBRARYNAME=SysCRedundancy
 
 #ifneq ($(OS),Cygwin)
 #ifneq ($(OS),MingW)
