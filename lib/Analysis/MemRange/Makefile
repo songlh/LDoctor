@@ -7,7 +7,7 @@ LEVEL=../../..
 #
 # Give the name of a library.  This will build a dynamic version.
 #
-LIBRARYNAME=InterProcDep
+LIBRARYNAME=MemRange
 
 #ifneq ($(OS),Cygwin)
 #ifneq ($(OS),MingW)
@@ -18,7 +18,7 @@ LOADABLE_MODULE := 1
 
 
 
-USEDLIBS = Search.a SFReach.a CFGUtility.a Invariant.a Dependence.a Utility.a
+USEDLIBS = Search.a
 
 #
 # Include Makefile.common so we know what to do.

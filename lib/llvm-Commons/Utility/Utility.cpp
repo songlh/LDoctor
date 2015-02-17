@@ -1,5 +1,8 @@
+#include "llvm/Support/CallSite.h"
+
 
 #include "llvm-Commons/Utility/Utility.h"
+
 
 using namespace std;
 using namespace llvm;
@@ -54,6 +57,43 @@ void SearchExitEdgesForBlocks( set<Edge> & setExitEdges, set<BasicBlock *> & set
 			setExitEdges.insert(edge);
 		}
 	}
+}
+
+bool IsReachable(BasicBlock * pA, BasicBlock * pB)
+{
+	if(pA == pB)
+	{
+		return true;
+	}
+
+	set<BasicBlock *> setProcessed;
+	setProcessed.insert(pA);
+	vector<BasicBlock *> vecWorkList;
+	vecWorkList.push_back(pA);
+
+	while(vecWorkList.size() >0)
+	{
+		BasicBlock * pCurrent = vecWorkList[vecWorkList.size()-1];
+		vecWorkList.pop_back();
+
+		for(succ_iterator I = succ_begin(pCurrent); I != succ_end(pCurrent); ++ I)
+		{
+			if(*I == pB)
+			{
+				return true;
+			}
+
+			if(setProcessed.find(*I) == setProcessed.end())
+			{
+				setProcessed.insert(*I);
+				vecWorkList.push_back(*I);
+			}
+		}
+
+	}
+
+	return false;
+
 }
 
 
@@ -185,8 +225,6 @@ void Search2TypeBlocksInLoop(set<BasicBlock *> & setType1Blocks, set<BasicBlock 
 	setType1Blocks.insert(vecType1Blocks.begin(), vecType1Blocks.end());
 	setType2Blocks.insert(vecType2Blocks.begin(), vecType2Blocks.end());
 
-
-
 }
 
 
@@ -314,6 +352,181 @@ bool PureIntrinsic(IntrinsicInst * II)
 	return false;
 
 }
+
+bool CmpValueSet(set<Value *> & setA, set<Value *> & setB)
+{
+	if(setA.size() != setB.size())
+	{
+		return false;
+	}
+
+	set<Value *>::iterator itSetBegin = setA.begin();
+	set<Value *>::iterator itSetEnd = setA.end();
+
+	for(; itSetBegin != itSetEnd; itSetBegin++)
+	{
+		if(setB.find(*itSetBegin) == setB.end() )
+		{
+			return false;
+		}
+	}
+
+	return true;
+}
+
+void GetAllReturnInst(Function * pFunction, set<ReturnInst *> & setRet)
+{
+	for(Function::iterator BB = pFunction->begin(); BB != pFunction->end(); BB ++ )
+	{
+		if(isa<UnreachableInst>(BB->getTerminator()))
+		{
+			continue;
+		}
+
+		for(BasicBlock::iterator II = BB->begin(); II != BB->end(); II ++ )
+		{	
+			if(ReturnInst * pRet = dyn_cast<ReturnInst>(II)	)
+			{
+				Value * pRetValue = pRet->getReturnValue();
+
+				if(pRetValue != NULL)
+				{
+					setRet.insert(pRet);
+				}
+			}
+		}
+	}
+}
+
+void GetAllReturnSite(Function * pFunction, set<ReturnInst *> & setRet)
+{
+	for(Function::iterator BB = pFunction->begin(); BB != pFunction->end(); BB ++ )
+	{
+		if(isa<UnreachableInst>(BB->getTerminator()))
+		{
+			continue;
+		}
+
+		for(BasicBlock::iterator II = BB->begin(); II != BB->end(); II ++ )
+		{	
+			if(ReturnInst * pRet = dyn_cast<ReturnInst>(II)	)
+			{
+				
+				setRet.insert(pRet);
+			}
+		}
+	}
+}
+
+
+void GetAllCallSite(Function * pFunction, set<Instruction *> & setCallSite )
+{
+	for(Function::iterator BB = pFunction->begin(); BB != pFunction->end(); BB ++ )
+	{	
+		if(isa<UnreachableInst>(BB->getTerminator()))
+		{
+			continue;
+		}
+
+		for(BasicBlock::iterator II = BB->begin(); II != BB->end(); II ++ )
+		{
+			if(isa<CallInst>(II) || isa<InvokeInst>(II) )
+			{
+				setCallSite.insert(II);
+			}
+		}
+	}
+}
+
+Instruction * GetInstByID(Function * pFunction, unsigned InsID )
+{
+	for(Function::iterator BB = pFunction->begin(); BB != pFunction->end(); BB++ )
+	{
+		if(isa<UnreachableInst>(BB->getTerminator()))
+		{
+			continue;
+		}
+
+		for(BasicBlock::iterator II = BB->begin(); II != BB->end(); II ++ )
+		{
+			MDNode * Node = II->getMetadata("ins_id");
+			if(!Node)
+				continue;
+			assert(Node->getNumOperands() == 1);
+			ConstantInt *CI = dyn_cast<ConstantInt>(Node->getOperand(0));
+			assert(CI);
+			
+			if( CI->getZExtValue() == InsID)
+			{
+				return II;
+			}
+		}
+	}
+
+	return NULL;
+}
+
+
+void CollectCalleeInsideLoop(Loop * pLoop, set<Function * > & setCallee, map<Function *, set<Instruction *> > & CalleeCallSiteMapping, map<Function *, LibraryFunctionType> & LibraryTypeMapping)
+{
+	for(Loop::block_iterator BB = pLoop->block_begin(); BB != pLoop->block_end(); ++ BB)
+	{
+		for(BasicBlock::iterator II = (*BB)->begin(); II != (*BB)->end(); ++ II )
+		{
+			if(isa<DbgInfoIntrinsic>(II))
+			{
+				continue;
+			}
+
+			if(isa<CallInst>(II) || isa<InvokeInst>(II))
+			{
+				CallSite cs(II);
+
+				Function * pCalled = cs.getCalledFunction();
+
+				if(pCalled == NULL)
+				{
+					continue;
+				}
+
+				CalleeCallSiteMapping[pCalled].insert(II);
+
+				if(LibraryTypeMapping.find(pCalled) != LibraryTypeMapping.end() )
+				{
+					continue;
+				}
+
+				if(pCalled->isDeclaration())
+				{
+					continue;
+				}
+
+				setCallee.insert(pCalled);
+			}
+		}
+	}
+}
+
+void CollectLoopLatches(Loop * pLoop, set<BasicBlock *> & setLatches)
+{
+	set<BasicBlock *> setBlocksInLoop;
+
+	for( Loop::block_iterator BB = pLoop->block_begin(); BB != pLoop->block_end(); ++ BB )
+	{
+		setBlocksInLoop.insert(*BB);
+	}
+
+	BasicBlock * pHeader = pLoop->getHeader();
+
+	for (pred_iterator I = pred_begin(pHeader), E = pred_end(pHeader); I != E; ++I) 
+	{
+		if(setBlocksInLoop.find(*I) != setBlocksInLoop.end() )
+		{
+			setLatches.insert(*I);
+		}
+	}
+}
+
 
 
 }

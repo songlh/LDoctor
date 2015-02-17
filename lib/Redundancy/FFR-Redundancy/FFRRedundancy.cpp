@@ -45,7 +45,6 @@ bool OnlyWrite(Argument * pArg)
 				return false;
 			}
 		}
-		
 	}
 
 	while(vecWorkList.size() > 0)
@@ -57,7 +56,6 @@ bool OnlyWrite(Argument * pArg)
 		{
 			if(isa<LoadInst>(*ub))
 			{
-				
 				return false;
 			}
 			else if(isa<CastInst>(*ub))
@@ -80,7 +78,6 @@ bool OnlyWrite(Argument * pArg)
 			{
 				if(pMem->getOperand(1) == pCurrent )
 				{
-
 					return false;
 				}
 			}
@@ -141,8 +138,6 @@ void FFRRedundancy::print(raw_ostream &O, const Module *M) const
 }
 
 
-
-
 //get all side effect instruction
 //check and prune the dependence 
 void FFRRedundancy::DependenceAnalysis(set<Value *> & setDependingValues, Function * pFunction )
@@ -179,7 +174,6 @@ void FFRRedundancy::DependenceAnalysis(set<Value *> & setDependingValues, Functi
 
 		}
 
-
 		Function * pContain = (*itMemSetBegin)->getParent()->getParent();
 
 		set<Value *>::iterator itValSetBegin   = this->IPD->StartFuncValueDependenceMappingMappingMapping[pFunction][pContain][*itMemSetBegin].begin();
@@ -206,6 +200,26 @@ void FFRRedundancy::DependenceAnalysis(set<Value *> & setDependingValues, Functi
 			setDependingValues.insert(*itValSetBegin);
 		}
 	}
+
+	set<ReturnInst *> setReturns;
+	GetAllReturnSite(pFunction, setReturns);
+
+	set<ReturnInst *>::iterator itSetRetBegin = setReturns.begin();
+	set<ReturnInst *>::iterator itSetRetEnd   = setReturns.end();
+
+	for(; itSetRetBegin != itSetRetEnd; itSetRetBegin ++)
+	{
+		set<Value *>::iterator itValSetBegin   = this->IPD->StartFuncValueDependenceMappingMappingMapping[pFunction][pFunction][*itSetRetBegin].begin();
+		set<Value *>::iterator itValSetEnd     = this->IPD->StartFuncValueDependenceMappingMappingMapping[pFunction][pFunction][*itSetRetBegin].end();
+
+		for(; itValSetBegin != itValSetEnd; itValSetBegin++)
+		{				
+			//(*itValSetBegin)->dump();
+			setDependingValues.insert(*itValSetBegin);
+		}
+	}
+
+	//exit(0);
 
 }
 
@@ -265,6 +279,8 @@ void FFRRedundancy::PruneDependenceResult(set<Value *> & setDependingValues, Fun
 	{
 		setDependingValues.erase(*itSetValueBegin);
 	}
+
+	PruneArgument(setDependingValues, pFunction);
 }
 
 void FFRRedundancy::PruneArgument(set<Value *> & setDependingValues, Function * pFunction)
@@ -273,12 +289,7 @@ void FFRRedundancy::PruneArgument(set<Value *> & setDependingValues, Function * 
 	{
 		if(isa<PointerType>(argBegin->getType()))
 		{
-			if(OnlyWrite(argBegin))
-			{
-				argBegin->dump();
-			}
-
-			break;
+			setDependingValues.erase(argBegin);	
 		}
 	}
 }
@@ -306,17 +317,14 @@ bool FFRRedundancy::runOnModule(Module& M)
 	set<Function *> setFunctions;
 	setFunctions.insert(pFunction);
 
-
-
 	this->IPD = &getAnalysis<InterProcDep>();
 	this->IPD->InitlizeStartFunctionSet(setFunctions);
 	this->IPD->LibraryTypeMapping = this->LibraryTypeMapping;
 	this->IPD->InterProcDependenceAnalysis();
 
-
 	set<Value *> setValue;
 
-	DependenceAnalysis(setValue, pFunction );
+	DependenceAnalysis(setValue, pFunction);
 
 	PruneDependenceResult(setValue, pFunction);
 
@@ -333,7 +341,6 @@ bool FFRRedundancy::runOnModule(Module& M)
 			{
 				continue;
 			}
-
 
 			MDNode *Node = pInst->getMetadata("ins_id");
 			if(Node!=NULL)
@@ -380,8 +387,6 @@ bool FFRRedundancy::runOnModule(Module& M)
 			(*itSetBegin)->dump();
 		}
 	}
-
-
 
 	return false;
 }

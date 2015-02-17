@@ -1000,12 +1000,7 @@ void StructFieldReach::CollectLiveInput(Function * pFunction, vector< pair<MemFo
 
 	for(; itSetBegin != itSetEnd; itSetBegin ++ )
 	{
-		/*
-		if((*itSetBegin)->GEPVariableIndices.size() > 0)
-		{
-			PrintMemFootPrint((*itSetBegin));
-		}
-		*/
+
 
 		vector<Argument *>::iterator itVecArgBegin = vecArgument.begin();
 		vector<Argument *>::iterator itVecArgEnd = vecArgument.end();
@@ -1026,18 +1021,6 @@ void StructFieldReach::CollectLiveInput(Function * pFunction, vector< pair<MemFo
 		}
 	}
 
-	//errs() << vecLiveInput.size() << "\n";
-
-/*
-	vector< pair<MemFootPrint *, int> >::iterator itVecBegin = vecLiveInput.begin();
-	vector< pair<MemFootPrint *, int> >::iterator itVecEnd = vecLiveInput.end();
-
-	for(; itVecBegin != itVecEnd; itVecBegin++)
-	{
-		PrintMemFootPrint(itVecBegin->first);
-	}
-
-*/
 }
 
 
@@ -1264,7 +1247,7 @@ void StructFieldReach::DumpLoadDependingStore()
 
 	for(; itMapBegin != itMapEnd; itMapBegin++)
 	{
-		if(itMapBegin->second.size() > 0)
+		if(itMapBegin->second.size() == 0)
 		{
 			continue;
 		}
@@ -1425,6 +1408,28 @@ void StructFieldReach::DumpMemInstDependingStore()
 	}
 }
 
+void StructFieldReach::ClearCache()
+{
+	this->InstPredInstVecMapping.clear();
+	this->InstSuccInstVecMapping.clear();
+
+	this->InstBeforeSetMapping.clear();
+	this->InstAfterSetMapping.clear();
+
+	this->InstBeforeExtendSetMapping.clear();
+	this->InstAfterExtendSetMapping.clear();
+
+	this->InstMemFootPrintMapping.clear();
+	this->CallInstMemFootPrintMapping.clear();
+	this->MemInstMemFootPrintMapping.clear();
+
+	this->MemFootPrintIDMapping.clear();
+	this->IDMemFootPrintMapping.clear();
+
+	this->FootPrintPairRelationMapping.clear();
+	this->InterFootPrintPairRelationMapping.clear();
+}
+
 
 void StructFieldReach::TestDriver(Module & M)
 {
@@ -1448,15 +1453,33 @@ void StructFieldReach::visit( Function * pFunction )
 	BuildMemFootPrintMapping(pFunction);
 	InitBeforeAfterSet(pFunction);
 	IntraFieldReachAnalysis(pFunction);
-	//DumpCachedRelation();
+
 	vector< pair<MemFootPrint *, int> >  vecLiveInput;
 	CollectLiveInput(pFunction, vecLiveInput );
 	InterFieldReachAnalysis(pFunction, vecLiveInput);
-	//DumpCachedInterRelation();
+
 	CalLoadDependentStore(pFunction);
-	//DumpLoadDependingStore();
 	CalMemIntrinsicDependence(pFunction);
-	//DumpMemInstDependingStore();
+	ClearCache();
+}
+
+
+void StructFieldReach::InitToDoSet(set<Function *> & ToDo)
+{
+	this->setToDo = ToDo;
+}
+
+void StructFieldReach::runAnalysis()
+{
+	set<Function *>::iterator itSetBegin = this->setToDo.begin();
+	set<Function *>::iterator itSetEnd   = this->setToDo.end();
+
+	for(; itSetBegin != itSetEnd; itSetBegin ++ )
+	{
+		visit(*itSetBegin);
+	}
+
+	//DumpLoadDependingStore();
 }
 
 
@@ -1466,8 +1489,14 @@ bool StructFieldReach::runOnModule(Module& M)
 	this->pDL = &getAnalysis<DataLayout>();
 	this->pTLI = &getAnalysis<TargetLibraryInfo>();
 
-	//TestDriver(M);
+	//Function * pFunction = M.getFunction("pp_base_format");
 
+	//Function * pFunction = M.getFunction("get_callee_fndecl");
+	//this->setToDo.insert(pFunction);
+	//pFunction = M.getFunction("real_zerop");
+	//this->setToDo.insert(pFunction);
+	//runAnalysis();
 
+	
 	return false;
 }

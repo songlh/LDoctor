@@ -8,6 +8,6 @@ LEVEL=../..
 #
 # List all of the subdirectories that we will compile.
 #
-DIRS=InterProcDep
+DIRS=InterProcDep MemRange
 
 include $(LEVEL)/Makefile.common

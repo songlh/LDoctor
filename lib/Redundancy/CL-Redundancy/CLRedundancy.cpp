@@ -59,7 +59,6 @@ static RegisterPass<CrossLoopRedundancy> X(
 
 void PrintDependence( Instruction * pI, set<Value *> & setDependence )
 {
-
 	char pPath[1000];
 	pI->dump();
 
@@ -120,47 +119,6 @@ void CrossLoopRedundancy::print(raw_ostream &O, const Module *M) const
 {
 	return;
 }
-
-/*
-void CrossLoopRedundancy::CollectCalleeInsideInnerLoop(Loop * pLoop)
-{
-	for(Loop::block_iterator BB = pLoop->block_begin(); BB != pLoop->block_end(); ++ BB)
-	{
-		for(BasicBlock::iterator II = (*BB)->begin(); II != (*BB)->end(); ++ II )
-		{
-			if(isa<DbgInfoIntrinsic>(II))
-			{
-				continue;
-			}
-			else if(isa<CallInst>(II) || isa<InvokeInst>(II))
-			{
-				CallSite cs(II);
-
-				Function * pCalled = cs.getCalledFunction();
-
-				if(pCalled == NULL)
-				{
-					continue;
-				}
-
-				this->CalleeCallSiteMapping[pCalled].insert(II);
-
-				if(this->LibraryTypeMapping.find(pCalled) != this->LibraryTypeMapping.end() )
-				{
-					continue;
-				}
-
-				if(pCalled->isDeclaration())
-				{
-					continue;
-				}
-
-				this->setCallee.insert(pCalled);
-			}
-		}
-	}
-}
-*/
 
 void CrossLoopRedundancy::DumpInterProcDepResult()
 {
@@ -243,6 +201,7 @@ void CrossLoopRedundancy::CollectSideEffectInstruction(Loop * pLoop, set<Instruc
 
 				if(pCalled == NULL)
 				{
+					setSideEffectInsts.insert(II);
 					continue;
 				}
 
@@ -325,6 +284,7 @@ void CrossLoopRedundancy::CollectSideEffectInstruction(Loop * pLoop, set<Instruc
 
 					if(pCalled == NULL)
 					{
+						setSideEffectInsts.insert(II);
 						continue;
 					}
 
@@ -420,6 +380,7 @@ void CrossLoopRedundancy::CollectSideEffectInstructionInsideLoop(Loop * pLoop, s
 
 				if(pCalled == NULL)  // this should be changed
 				{
+					setSideEffectInst.insert(II);
 					continue;
 				}
 
@@ -495,7 +456,12 @@ void CrossLoopRedundancy::CalDependenceForSEInst(Loop * pLoop, set<Instruction *
 			CallSite cs(*itInstSetBegin);
 			Function * pCalled = cs.getCalledFunction();
 
-			assert(this->setCallee.find(pCalled) == this->setCallee.end());
+			//assert(this->setCallee.find(pCalled) == this->setCallee.end());
+			if(this->setCallee.find(pCalled) != this->setCallee.end())
+			{
+				setDependentValue.insert(*itInstSetBegin);
+				continue;
+			}
 		}
 
 		vector<Value *>::iterator itVecValueBegin = vecValueDependence.begin();
@@ -585,7 +551,7 @@ void CrossLoopRedundancy::LoopDependenceAnalysis(Loop * pLoop, set<Value *> & se
 			continue;
 		}
 
-		if(isa<LoadInst>(pCurrent) || isa<MemIntrinsic>(pCurrent))
+		if(isa<LoadInst>(pCurrent) || isa<MemTransferInst>(pCurrent))
 		{
 			setDependentValue.insert(pCurrent);
 			continue;
@@ -627,6 +593,7 @@ void CrossLoopRedundancy::LoopDependenceAnalysis(Loop * pLoop, set<Value *> & se
 			}
 			else
 			{
+
 				map<Instruction *, set<Value *> > ValueDependenceMapping = this->IPD->StartFuncValueDependenceMappingMappingMapping[pCalled][pCalled];
 					
 				set<ReturnInst *> setRetInst;
@@ -644,6 +611,7 @@ void CrossLoopRedundancy::LoopDependenceAnalysis(Loop * pLoop, set<Value *> & se
 					{
 						if(Argument * pArg = dyn_cast<Argument>(*itSetValueBegin) )
 						{
+							//pArg->dump();
 							assert(pArg->getParent() == pCalled);	
 							vecValueDependence.push_back(pCurrent->getOperand(pArg->getArgNo()));
 						}
@@ -1212,7 +1180,7 @@ bool CrossLoopRedundancy::runOnModule(Module& M)
 		return false;
 	}
 
-	//CollectCalleeInsideInnerLoop(pInnerLoop);
+
 	CollectCalleeInsideLoop(pInnerLoop, this->setCallee, this->CalleeCallSiteMapping, this->LibraryTypeMapping);
 
 	this->IPD = &getAnalysis<InterProcDep>();
@@ -1224,6 +1192,8 @@ bool CrossLoopRedundancy::runOnModule(Module& M)
 
 	LoopDependenceAnalysis(pInnerLoop, setValue, PDT);
 
+
+	//exit(0);
 	set<Value *>::iterator itSetBegin = setValue.begin();
 	set<Value *>::iterator itSetEnd   = setValue.end();
 
@@ -1235,7 +1205,6 @@ bool CrossLoopRedundancy::runOnModule(Module& M)
 			{
 				continue;
 			}
-
 
 			MDNode *Node = pInst->getMetadata("ins_id");
 			if(Node!=NULL)

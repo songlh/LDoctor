@@ -17,6 +17,7 @@ using namespace std;
 
 namespace llvm_Commons
 {
+	BasicBlock * SearchBlockByName(Function * pFunction, string sName);
 	Function * SearchFunctionByName(Module & , string &, string &, unsigned);
 	void SearchBasicBlocksByLineNo( Function *, unsigned, vector<BasicBlock *> &);
 	Loop * SearchLoopByLineNo( Function * , LoopInfo *, unsigned);

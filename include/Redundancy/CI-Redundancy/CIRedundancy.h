@@ -30,7 +30,8 @@ struct CrossIterationRedundancy : public ModulePass
 private:
 	void CollectSideEffectInstsInsideLoop(Loop * pLoop, set<Instruction *> & setInstructions );
 	void CollectCalleeInsideLoop(Loop * pLoop);
-
+	void LoopDependenceAnalysis(Loop * pLoop, set<Value *> & setValueInput, set<Value *> & setDependentValue, ControlDependenceGraphBase & CDG);
+	void CalDependenceForSEInst(Loop * pLoop, set<Instruction *> & SEInst, set<Value *> & setDependentValue, ControlDependenceGraphBase & CDG);
 
 	void CIDependenceAnalysis(Loop * pLoop, set<Value *> & setDependentValue, PostDominatorTree * PDT);
 
@@ -41,7 +42,7 @@ private:
 	set<Function *> setCallee;
 	map<Function *, set<Instruction *> > CalleeCallSiteMapping;
 
-	DataLayout * pDL;
+	//DataLayout * pDL;
 	InterProcDep * IPD;
 
 };

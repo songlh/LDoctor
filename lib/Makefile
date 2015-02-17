@@ -8,6 +8,6 @@ LEVEL=..
 #
 # List all of the subdirectories that we will compile.
 #
-DIRS=llvm-Commons Analysis Redundancy Instrument Workless 
+DIRS=llvm-Commons Analysis Redundancy Instrument Workless
 
 include $(LEVEL)/Makefile.common

@@ -545,8 +545,22 @@ void CalMemFootPrint(Instruction * pInstruction, MemFootPrint * pFoot, DataLayou
 		{
 			pFoot->uLength = pType->getBitWidth()/8;
 		}
+		else if(isa<PointerType>(pLoad->getType()))
+		{
+			pFoot->uLength = 8;
+		}
+		else if(StructType * pStructType = dyn_cast<StructType>(pLoad->getType()))
+		{
+			pFoot->uLength = pDL->getTypeAllocSize(pStructType);
+
+		}
+		else if(pLoad->getType()->isDoubleTy() )
+		{
+			pFoot->uLength = pDL->getTypeAllocSize(pLoad->getType());
+		}
 		else
 		{
+			pLoad->dump();
 			assert(0);
 		}
 
@@ -560,8 +574,22 @@ void CalMemFootPrint(Instruction * pInstruction, MemFootPrint * pFoot, DataLayou
 		{
 			pFoot->uLength = pType->getBitWidth()/8;
 		}
+		else if(isa<PointerType>(pV->getType()))
+		{
+			pFoot->uLength = 8;
+		}
+		else if(StructType * pStructType = dyn_cast<StructType>(pV->getType()))
+		{
+			pFoot->uLength = pDL->getTypeAllocSize(pStructType);
+
+		}
+		else if(pV->getType()->isDoubleTy() )
+		{
+			pFoot->uLength = pDL->getTypeAllocSize(pV->getType());
+		}
 		else
 		{
+			pStore->dump();
 			assert(0);
 		}
 	}
@@ -832,13 +860,16 @@ void ChangeBaseObject(MemFootPrint * pFoot, Value * pV, DataLayout * pDL)
 	}
 
 	//assert(pBaseObject == pV);
+	/*
 	if(pBaseObject != pV)
 	{
 		pBaseObject->dump();
 		pV->dump();
+		errs() << cast<Instruction>(pV)->getParent()->getParent()->getName() <<"\n";
+		errs() << "here\n";
 		exit(0);
 	}
-
+	*/
 
 	pFoot->pBaseObject = pBaseObject;
 

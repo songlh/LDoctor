@@ -10,6 +10,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/DebugInfo.h"
 
+#include "llvm-Commons/Utility/Utility.h"
 #include "llvm-Commons/SFReach/SFReach.h"
 #include "llvm-Commons/Search/Search.h"
 #include "llvm-Commons/SFReach/MemFootPrintUtility.h"
@@ -17,136 +18,17 @@
 #include "llvm-Commons/CFG/CFGUtility.h"
 #include "llvm-Commons/Dependence/DependenceUtility.h"
 
+
 #include "Analysis/InterProcDep/InterProcDep.h"
 
 using namespace llvm;
 using namespace llvm_Commons;
 
-static cl::opt<unsigned> uSrcLine("noLine", 
-					cl::desc("Source Code Line Number"), cl::Optional, 
-					cl::value_desc("uSrcCodeLine"));
-
-
-static cl::opt<std::string> strFileName("strFile", 
-					cl::desc("File Name"), cl::Optional, 
-					cl::value_desc("strFileName"));
-
-static cl::opt<std::string> strFuncName("strFunc", 
-					cl::desc("Function Name"), cl::Optional, 
-					cl::value_desc("strFuncName"));
 
 static RegisterPass<InterProcDep> X("inter-procedure-dep",
                                 "Inter Procedure Dependence Analysis",
                                 false,
                                 true);
-
-
-bool CmpValueSet(set<Value *> & setA, set<Value *> & setB)
-{
-	if(setA.size() != setB.size())
-	{
-		return false;
-	}
-
-	set<Value *>::iterator itSetBegin = setA.begin();
-	set<Value *>::iterator itSetEnd = setA.end();
-
-	for(; itSetBegin != itSetEnd; itSetBegin++)
-	{
-		if(setB.find(*itSetBegin) == setB.end() )
-		{
-			return false;
-		}
-	}
-
-	return true;
-}
-
-void BuildScope(Function * pFunction, set<Function *> & setScope )
-{
-	vector<Function *> vecWorkList;
-	vecWorkList.push_back(pFunction);
-	setScope.insert(pFunction);
-
-	while(vecWorkList.size()>0)
-	{
-		Function * pCurrentFunction = vecWorkList[vecWorkList.size()-1];
-		vecWorkList.pop_back();
-
-		for(Function::iterator BB = pCurrentFunction->begin(); BB != pCurrentFunction->end(); BB ++)
-		{
-			if(isa<UnreachableInst>(BB->getTerminator()))
-			{
-				continue;
-			}
-
-			for(BasicBlock::iterator II = BB->begin(); II != BB->end(); II ++)
-			{
-				if(isa<CallInst>(II) || isa<InvokeInst>(II))
-				{
-					if(isa<DbgInfoIntrinsic>(II))
-					{
-						continue;
-					}
-
-					CallSite cs(II);
-					Function * pCalledFunction = cs.getCalledFunction();
-
-					if(pCalledFunction == NULL)
-					{
-						continue;
-					}
-
-					if(pCalledFunction->isDeclaration())
-					{
-						continue;
-					}
-
-					if(setScope.find(pCalledFunction) == setScope.end())
-					{
-						setScope.insert(pCalledFunction);
-						vecWorkList.push_back(pCalledFunction);
-					}
-				}
-			}
-
-		}
-	}
-}
-
-void GetAllReturnInst(Function * pFunction, set<ReturnInst *> & setRet)
-{
-	for(Function::iterator BB = pFunction->begin(); BB != pFunction->end(); BB ++ )
-	{
-		for(BasicBlock::iterator II = BB->begin(); II != BB->end(); II ++ )
-		{	
-			if(ReturnInst * pRet = dyn_cast<ReturnInst>(II)	)
-			{
-				Value * pRetValue = pRet->getReturnValue();
-
-				if(pRetValue != NULL)
-				{
-					setRet.insert(pRet);
-				}
-			}
-		}
-	}
-}
-
-
-void GetAllCallSite(Function * pFunction, set<Instruction *> & setCallSite )
-{
-	for(Function::iterator BB = pFunction->begin(); BB != pFunction->end(); BB ++ )
-	{
-		for(BasicBlock::iterator II = BB->begin(); II != BB->end(); II ++ )
-		{
-			if(isa<CallInst>(II) || isa<InvokeInst>(II) )
-			{
-				setCallSite.insert(II);
-			}
-		}
-	}
-}
 
 
 void AddIntraDependence(Instruction * pValue, Value * pDependence, set<Instruction *> & setProcessedInst, set<Value *> & setDependence, 
@@ -193,28 +75,6 @@ void AddInterDependence(Value * pValue, Value * pDependence, set<Value *> & setP
 	setDependence.insert(pDependence);
 }
 
-Instruction * GetInstByID(Function * pFunction, unsigned InsID )
-{
-	for(Function::iterator BB = pFunction->begin(); BB != pFunction->end(); BB++ )
-	{
-		for(BasicBlock::iterator II = BB->begin(); II != BB->end(); II ++ )
-		{
-			MDNode * Node = II->getMetadata("ins_id");
-			if(!Node)
-				continue;
-			assert(Node->getNumOperands() == 1);
-			ConstantInt *CI = dyn_cast<ConstantInt>(Node->getOperand(0));
-			assert(CI);
-			
-			if( CI->getZExtValue() == InsID)
-			{
-				return II;
-			}
-		}
-	}
-
-	return NULL;
-}
 
 void DumpDependence(set<Value *>  & setDependence)
 {
@@ -279,14 +139,15 @@ char InterProcDep::ID = 0;
 InterProcDep::InterProcDep(): ModulePass(ID) {
 	PassRegistry &Registry = *PassRegistry::getPassRegistry();
 	initializeDataLayoutPass(Registry);
-
-
+	initializeAliasAnalysisAnalysisGroup(Registry);
 
 }
 
 void InterProcDep::getAnalysisUsage(AnalysisUsage &AU) const {
 	AU.setPreservesCFG();
 	AU.addRequired<DataLayout>();
+	AU.addRequired<AliasAnalysis>();
+	AU.addRequired<StructFieldReach>();
 	AU.addRequired<PostDominatorTree>();
 }
 
@@ -298,50 +159,13 @@ void InterProcDep::print(raw_ostream &O, const Module *M) const
 bool InterProcDep::runOnModule(Module &M) 
 {
 	this->pDL = &getAnalysis<DataLayout>();
-	InitlizeFuncSet();
+	this->pSFR = &getAnalysis<StructFieldReach>();
+
 	this->pModule = &M;
-	//Function * pFunction = M.getFunction("_ZNSt17_Rb_tree_iteratorISt4pairIKSsSsEEppEi");
-	//AnalyzeMemReadInst(pFunction);
-	//NonRecursiveDependenceAnalysis(pFunction);
+
 	return false;
 }
 
-void InterProcDep::InitlizeFuncSet()
-{
-	this->setPureFunctions.insert("floor_log2");
-	this->setPureFunctions.insert("exact_log2");
-	this->setPureFunctions.insert("JS_ASSERT");
-	this->setPureFunctions.insert("JS_Assert");
-	this->setPureFunctions.insert("_ZSt18_Rb_tree_incrementPSt18_Rb_tree_node_base");
-	this->setPureFunctions.insert("strncmp");
-	this->setPureFunctions.insert("strcmp");
-	this->setPureFunctions.insert("memcmp");
-	this->setPureFunctions.insert("decNumberCompare");
-	this->setPureFunctions.insert("decimal_do_compare");
-	this->setPureFunctions.insert("vector_type_mode");
-	
-	this->setMemoryAllocFunctions.insert("ggc_alloc");
-	this->setMemoryAllocFunctions.insert("malloc");
-	this->setMemoryAllocFunctions.insert("xcalloc");
-
-	this->setTransparentFunctions.insert(this->setPureFunctions.begin(), this->setPureFunctions.end());
-	this->setTransparentFunctions.insert(this->setMemoryAllocFunctions.begin(), this->setMemoryAllocFunctions.end());
-
-	this->setFileIO.insert("fwrite");
-	this->setFileIO.insert("fputc");
-	this->setFileIO.insert("fgetc");
-	this->setFileIO.insert("fflush");
-	this->setFileIO.insert("fopen");
-	this->setFileIO.insert("fclose");
-
-	this->setStoppedFunctions.insert(this->setFileIO.begin(), this->setFileIO.end());
-	this->setStoppedFunctions.insert("rand");
-
-	this->setLibraryFunctions.insert(this->setPureFunctions.begin(), this->setPureFunctions.end());
-	this->setLibraryFunctions.insert(this->setMemoryAllocFunctions.begin(), this->setMemoryAllocFunctions.end());
-	this->setLibraryFunctions.insert(this->setFileIO.begin(), this->setFileIO.end());
-	this->setLibraryFunctions.insert("rand");
-}
 
 void InterProcDep::InitlizeStartFunctionSet(set<Function *> & StartingSet)
 {
@@ -377,7 +201,7 @@ void InterProcDep::IsRecursiveFunction(Function * pFunction, map<Function *, int
 						continue;
 					}
 
-					if(this->setLibraryFunctions.find(pCalled->getName()) != this->setLibraryFunctions.end() )
+					if(this->LibraryTypeMapping.find(pCalled) != this->LibraryTypeMapping.end() )
 					{
 						continue;
 					}
@@ -497,7 +321,7 @@ void InterProcDep::BuildCallerCalleeMapping(Function * pFunction)
 						continue;
 					}
 
-					if(this->setLibraryFunctions.find(pCalledFunction->getName()) != this->setLibraryFunctions.end())
+					if(this->LibraryTypeMapping.find(pCalledFunction) != this->LibraryTypeMapping.end() )
 					{
 						continue;
 					}
@@ -577,13 +401,8 @@ void InterProcDep::AnalyzeMemReadInst(Function * pFunction)
 
 	BuildCallerCalleeMapping(pFunction);
 
-	set<Function *> setScope; 
-	BuildScope(pFunction, setScope);
-
 	map<Function *, set<Function *> >::iterator itCallerMapBegin = this->StartCallerCalleeMappingMapping[pFunction].begin();
 	map<Function *, set<Function *> >::iterator itCallerMapEnd = this->StartCallerCalleeMappingMapping[pFunction].end();
-
-	set<Value *> setInvariantGlobal;
 
 	itCallerMapBegin = this->StartCallerCalleeMappingMapping[pFunction].begin();
 
@@ -593,6 +412,11 @@ void InterProcDep::AnalyzeMemReadInst(Function * pFunction)
 
 		for(Function::iterator BB = pCurrentFunction->begin(); BB != pCurrentFunction->end(); BB ++ )
 		{
+			if(isa<UnreachableInst>(BB->getTerminator()))
+			{
+				continue;
+			}
+
 			for(BasicBlock::iterator II = BB->begin(); II != BB->end(); II ++)
 			{
 				if(LoadInst * pLoad = dyn_cast<LoadInst>(II))
@@ -609,12 +433,6 @@ void InterProcDep::AnalyzeMemReadInst(Function * pFunction)
 					if(BeInputArgument(pBase))
 					{
 						LoadTypeMapping[pLoad] = MO_INPUT;
-						continue;
-					}
-
-					if(setInvariantGlobal.find(pBase) != setInvariantGlobal.end())
-					{
-						LoadTypeMapping[pLoad] = MO_INVARIANT;
 						continue;
 					}
 
@@ -635,10 +453,6 @@ void InterProcDep::AnalyzeMemReadInst(Function * pFunction)
 					{
 						pairTmp.first = MO_INPUT;
 					}
-					else if(setInvariantGlobal.find(pDestBase) != setInvariantGlobal.end())
-					{
-						pairTmp.first = MO_INVARIANT;
-					}
 					else
 					{
 						pairTmp.first = MO_OTHER;
@@ -655,27 +469,22 @@ void InterProcDep::AnalyzeMemReadInst(Function * pFunction)
 					{
 						pairTmp.second = MO_INPUT;
 					}
-					else if(setInvariantGlobal.find(pSrcBase) != setInvariantGlobal.end())
-					{
-						pairTmp.second = MO_INVARIANT;
-					}
 					else
 					{
 						pairTmp.second = MO_OTHER;
 					}
 
-					MemTypeMapping[pMem] = pairTmp;
+					MemTypeMapping[pMem] = pairTmp;					
 				}
 			}
 		}
 	}
 
 	this->StartLoadTypeMappingMapping[pFunction] = LoadTypeMapping;
-	this->StartMemTypeMappingMapping[pFunction]  = MemTypeMapping;
-	
+	this->StartMemTypeMappingMapping[pFunction]  = MemTypeMapping;	
 }
 
-int InterProcDep::CountLocalLoad(Function * pFunction)
+int InterProcDep::CountLocalLoad(Function * pFunction, set<Function *> & setFunctions )
 {
 	int iLocal = 0;
 	int iInput = 0;
@@ -687,6 +496,7 @@ int InterProcDep::CountLocalLoad(Function * pFunction)
 	{
 		if(itMapLoadBegin->second == MO_LOCAL)
 		{
+			setFunctions.insert(itMapLoadBegin->first->getParent()->getParent());
 			iLocal ++;
 		}
 		else if(itMapLoadBegin->second == MO_INPUT)
@@ -695,7 +505,6 @@ int InterProcDep::CountLocalLoad(Function * pFunction)
 		}
 	}
 
-
 	map<MemTransferInst *, pair<MemoryObjectType, MemoryObjectType> >::iterator itMapMemBegin = this->StartMemTypeMappingMapping[pFunction].begin();
 	map<MemTransferInst *, pair<MemoryObjectType, MemoryObjectType> >::iterator itMapMemEnd = this->StartMemTypeMappingMapping[pFunction].end();
 
@@ -703,6 +512,7 @@ int InterProcDep::CountLocalLoad(Function * pFunction)
 	{
 		if(itMapMemBegin->second.second == MO_LOCAL)
 		{
+			setFunctions.insert(itMapMemBegin->first->getParent()->getParent());
 			iLocal++;
 		}
 		else if(itMapMemBegin->second.second == MO_INPUT)
@@ -743,6 +553,11 @@ void InterProcDep::NoneIntraProcedureDependenceAnalysis(Function * pFunction, Fu
 		vector<Value *> CFGDependentValue;
 		for(Function::iterator BBtmp = pFunction->begin(); BBtmp != pFunction->end(); BBtmp++ )
 		{			
+			if(isa<UnreachableInst>(BBtmp->getTerminator()))
+			{
+				continue;
+			}
+
 			if(CDG.influences(BBtmp, BB))
 			{
 				TerminatorInst * pTerminator = BBtmp->getTerminator();
@@ -802,6 +617,11 @@ void InterProcDep::NoneIntraProcedureDependenceAnalysis(Function * pFunction, Fu
 			
 			itVecValueBegin = vecOperator.begin();
 			itVecValueEnd = vecOperator.end();
+
+			if(isa<MemIntrinsic>(II) )
+			{
+				itVecValueBegin ++;
+			}
 			
 			for(; itVecValueBegin != itVecValueEnd; itVecValueBegin ++ )
 			{
@@ -866,7 +686,7 @@ void InterProcDep::NoneIntraProcedureDependenceAnalysis(Function * pFunction, Fu
 				}
 				else if(MemTransferInst * pMem = dyn_cast<MemTransferInst>(pInstruction) )
 				{
-					if(this->StartMemTypeMappingMapping[pStart][pMem].first != MO_LOCAL)
+					if(this->StartMemTypeMappingMapping[pStart][pMem].second != MO_LOCAL)
 					{
 						setNewDependentValue.insert(pMem);
 						continue;
@@ -883,7 +703,13 @@ void InterProcDep::NoneIntraProcedureDependenceAnalysis(Function * pFunction, Fu
 						continue;
 					}
 
-					if(this->setTransparentFunctions.find(pCalled->getName()) == this->setTransparentFunctions.end())
+					if(this->LibraryTypeMapping.find(pCalled) == this->LibraryTypeMapping.end() )
+					{
+						setNewDependentValue.insert(pInstruction);
+						continue;
+					}
+
+					if(this->LibraryTypeMapping[pCalled] == LF_PURE || this->LibraryTypeMapping[pCalled] == LF_IO || this->LibraryTypeMapping[pCalled] == LF_OTHER)
 					{
 						setNewDependentValue.insert(pInstruction);
 						continue;
@@ -898,6 +724,7 @@ void InterProcDep::NoneIntraProcedureDependenceAnalysis(Function * pFunction, Fu
 
 				set<Value *>::iterator itSetTmpBegin = ValueDependenceMapping[pInstruction].begin();
 				set<Value *>::iterator itSetTmpEnd = ValueDependenceMapping[pInstruction].end();
+
 				for(; itSetTmpBegin != itSetTmpEnd; itSetTmpBegin ++ )
 				{
 					if(Instruction * pDependentInst = dyn_cast<Instruction>(*itSetTmpBegin))
@@ -958,11 +785,12 @@ void InterProcDep::NoneIntraProcedureDependenceAnalysis(Function * pFunction, Fu
 					continue;
 				}
 
-				if(this->setStoppedFunctions.find(pCalled->getName()) != this->setStoppedFunctions.end())
+				if(this->LibraryTypeMapping.find(pCalled) == this->LibraryTypeMapping.end() || this->LibraryTypeMapping[pCalled] == LF_PURE 
+					|| this->LibraryTypeMapping[pCalled] == LF_IO || this->LibraryTypeMapping[pCalled] == LF_OTHER)
 				{
 					continue;
 				}
-				
+			
 			}
 
 			set<Instruction *>::iterator itSetInstBegin = DependenceValueMapping[pCurrent].begin();
@@ -991,7 +819,7 @@ void InterProcDep::CollectSideEffectInst(Function * pStart, set<Instruction *> &
 	for(; itCallerMapBegin != itCallerMapEnd; itCallerMapBegin ++ )
 	{
 		Function * pCurrentFunction = itCallerMapBegin->first;
-		//errs() << pCurrentFunction->getName() << "\n";
+
 		for(Function::iterator BB = pCurrentFunction->begin(); BB != pCurrentFunction->end(); BB ++)
 		{
 			if(isa<UnreachableInst>(BB->getTerminator()))
@@ -1032,16 +860,21 @@ void InterProcDep::CollectSideEffectInst(Function * pStart, set<Instruction *> &
 
 					if(pCalledFunction == NULL)
 					{
+						setCallSite.insert(II);
 						continue;
 					}
 
-					if(this->setPureFunctions.find(pCalledFunction->getName()) != this->setPureFunctions.end())
+					if(this->LibraryTypeMapping.find(pCalledFunction) != this->LibraryTypeMapping.end() )
 					{
-						continue;
-					}
+						if(this->LibraryTypeMapping[pCalledFunction] == LF_TRANSPARENT)
+						{
+							continue;
+						}
+						else if(this->LibraryTypeMapping[pCalledFunction] == LF_PURE)
+						{
+							continue;
+						}
 
-					if(this->setMemoryAllocFunctions.find(pCalledFunction->getName()) != this->setMemoryAllocFunctions.end() )
-					{
 						setCallSite.insert(II);
 						continue;
 					}
@@ -1118,7 +951,13 @@ void InterProcDep::BottomUpDependenceAnalysis(Function * pFunction, Function * p
 									continue;
 								}
 
-								if(this->setTransparentFunctions.find(pCalled->getName()) == this->setTransparentFunctions.end())
+								if(this->LibraryTypeMapping.find(pCalled) == this->LibraryTypeMapping.end() )
+								{
+									this->StartFuncValueDependenceMappingMappingMapping[pStart][pFunction][*itSetBegin].insert(pInst);
+									continue;
+								}
+
+								if(this->LibraryTypeMapping[pCalled] == LF_PURE || this->LibraryTypeMapping[pCalled] == LF_IO || this->LibraryTypeMapping[pCalled] == LF_OTHER)
 								{
 									this->StartFuncValueDependenceMappingMappingMapping[pStart][pFunction][*itSetBegin].insert(pInst);
 									continue;
@@ -1180,7 +1019,7 @@ void InterProcDep::BottomUpDependenceAnalysis(Function * pFunction, Function * p
 				}
 				else if(MemTransferInst * pMem = dyn_cast<MemTransferInst>(pInstruction) )
 				{
-					if(this->StartMemTypeMappingMapping[pStart][pMem].first != MO_LOCAL)
+					if(this->StartMemTypeMappingMapping[pStart][pMem].second != MO_LOCAL)
 					{
 						setNewDependentValue.insert(pMem);
 						continue;
@@ -1197,7 +1036,25 @@ void InterProcDep::BottomUpDependenceAnalysis(Function * pFunction, Function * p
 						continue;
 					}
 
-					if(this->setStoppedFunctions.find(pCalled->getName()) != this->setStoppedFunctions.end() )
+					if(this->LibraryTypeMapping.find(pCalled) != this->LibraryTypeMapping.end() )
+					{
+						if(this->LibraryTypeMapping[pCalled] == LF_PURE)
+						{
+							setNewDependentValue.insert(pInstruction);
+							continue;
+						}
+						else if(this->LibraryTypeMapping[pCalled] == LF_IO)
+						{
+							setNewDependentValue.insert(pInstruction);
+							continue;
+						}
+						else if(this->LibraryTypeMapping[pCalled] == LF_OTHER)
+						{
+							setNewDependentValue.insert(pInstruction);
+							continue;
+						}
+					}
+					else if(pCalled->isDeclaration() )
 					{
 						setNewDependentValue.insert(pInstruction);
 						continue;
@@ -1269,7 +1126,22 @@ void InterProcDep::BottomUpDependenceAnalysis(Function * pFunction, Function * p
 					continue;
 				}
 
-				if(this->setStoppedFunctions.find(pCalled->getName()) != this->setStoppedFunctions.end() )
+				if(this->LibraryTypeMapping.find(pCalled) != this->LibraryTypeMapping.end() )
+				{
+					if(this->LibraryTypeMapping[pCalled] == LF_PURE)
+					{
+						continue;
+					}
+					else if(this->LibraryTypeMapping[pCalled] == LF_IO)
+					{
+						continue;
+					}
+					else if(this->LibraryTypeMapping[pCalled] == LF_OTHER)
+					{
+						continue;
+					}
+				}
+				else if(pCalled->isDeclaration() )
 				{
 					continue;
 				}
@@ -1341,6 +1213,7 @@ void InterProcDep::TopDownDependenceAnalysis(Function * pFunction, Function * pS
 								continue;
 							}
 						}
+						/*
 						else if(MemTransferInst * pMem = dyn_cast<MemTransferInst>(pInstruction))
 						{
 							if(this->StartMemTypeMappingMapping[pStart][pMem].first != MO_LOCAL)
@@ -1349,6 +1222,7 @@ void InterProcDep::TopDownDependenceAnalysis(Function * pFunction, Function * pS
 								continue;
 							}
 						}
+						*/
 						else if(isa<CallInst>(pInstruction) || isa<InvokeInst>(pInstruction))
 						{
 							CallSite cs(pInstruction);
@@ -1360,16 +1234,30 @@ void InterProcDep::TopDownDependenceAnalysis(Function * pFunction, Function * pS
 								continue;
 							}
 
-							if(this->setStoppedFunctions.find(pCalled->getName()) != this->setStoppedFunctions.end() )
+							if(this->LibraryTypeMapping.find(pCalled) != this->LibraryTypeMapping.end() )
+							{
+								if(this->LibraryTypeMapping[pCalled] == LF_PURE)
+								{
+									vecArgDValues[i].insert(pInstruction);
+									continue;
+								}
+								else if(this->LibraryTypeMapping[pCalled] == LF_IO)
+								{
+									vecArgDValues[i].insert(pInstruction);
+									continue;
+								}
+								else if(this->LibraryTypeMapping[pCalled] == LF_OTHER)
+								{
+									vecArgDValues[i].insert(pInstruction);
+									continue;
+								}
+							}
+							else if(pCalled->isDeclaration() )
 							{
 								vecArgDValues[i].insert(pInstruction);
 								continue;
 							}
-
 						}
-
-
-
 
 						vecArgDValues[i].insert(this->StartFuncValueDependenceMappingMappingMapping[pStart][pCaller][pInstruction].begin(), 
 							this->StartFuncValueDependenceMappingMappingMapping[pStart][pCaller][pInstruction].end());
@@ -1434,6 +1322,13 @@ void InterProcDep::TopDownDependenceAnalysis(Function * pFunction, Function * pS
 
 	for(Function::iterator BB = pFunction->begin(); BB != pFunction->end(); BB ++ )
 	{
+
+		if(isa<UnreachableInst>(BB->getTerminator()))
+		{
+			continue;
+		}
+
+
 		for(BasicBlock::iterator II = BB->begin(); II != BB->end(); II ++ )
 		{
 			set<Value *> newValueSet;
@@ -1467,8 +1362,22 @@ void InterProcDep::TopDownDependenceAnalysis(Function * pFunction, Function * pS
 void InterProcDep::NoneRecursiveDependenceAnalysis(Function * pFunction )
 {
 	AnalyzeMemReadInst(pFunction);
-	int iLocal = CountLocalLoad(pFunction);
-	assert(iLocal == 0);
+	set<Function *> setLocalLoadFunctions;
+	int iLocal = CountLocalLoad(pFunction, setLocalLoadFunctions);
+	
+	if(iLocal > 0)
+	{
+
+		this->pSFR->InitToDoSet(setLocalLoadFunctions);
+		this->pSFR->runAnalysis();
+		this->LoadDependentInstMapping = this->pSFR->LoadDependentInstMapping;
+		this->MemInstDependentInstMapping = this->pSFR->MemInstDependentInstMapping;
+
+		this->pSFR->LoadDependentInstMapping.clear();
+		this->pSFR->MemInstDependentInstMapping.clear();
+
+	}
+
 
 	set<Instruction *> setCallSite;
 	set<StoreInst *> setStore;
@@ -1496,14 +1405,6 @@ void InterProcDep::NoneRecursiveDependenceAnalysis(Function * pFunction )
 	}
 
 
-/*
-	Function * test = this->pModule->getFunction("pd_conjoint_oops_atomic");
-	test->dump();
-	Instruction * pTestInst = GetInstByID(test, 48);
-	pTestInst->dump();
-	DumpDependence(this->StartFuncValueDependenceMappingMappingMapping[pFunction][test][pTestInst]);
-	exit(0);
-*/
 	set<Function *> setProcessedFunc;
 
 	//bottom-up
@@ -1625,8 +1526,20 @@ void InterProcDep::NoneRecursiveDependenceAnalysis(Function * pFunction )
 void InterProcDep::InfeasiblePathDependenceAnalysis(Function * pFunction)
 {
 	AnalyzeMemReadInst(pFunction);
-	int iLocal = CountLocalLoad(pFunction);
-	assert(iLocal == 0);
+
+	set<Function *> setLocalLoadFunctions;
+	int iLocal = CountLocalLoad(pFunction, setLocalLoadFunctions);
+	
+	if(iLocal > 0)
+	{
+		this->pSFR->InitToDoSet(setLocalLoadFunctions);
+		this->pSFR->runAnalysis();
+		this->LoadDependentInstMapping = this->pSFR->LoadDependentInstMapping;
+		this->MemInstDependentInstMapping = this->pSFR->MemInstDependentInstMapping;
+
+		this->pSFR->LoadDependentInstMapping.clear();
+		this->pSFR->MemInstDependentInstMapping.clear();
+	}
 
 	set<Instruction *> setCallSite;
 	set<StoreInst *> setStore;
@@ -1671,6 +1584,10 @@ void InterProcDep::InfeasiblePathDependenceAnalysis(Function * pFunction)
 			vector<Value *> CFGDependentValue;
 			for(Function::iterator btmp = pF->begin(), betmp=pF->end(); btmp != betmp; btmp++ )
 			{
+				if(isa<UnreachableInst>(btmp->getTerminator()))
+				{
+					continue;
+				}
 
 				if(CDG.influences(btmp, BB))
 				{
@@ -1717,7 +1634,6 @@ void InterProcDep::InfeasiblePathDependenceAnalysis(Function * pFunction)
 						//add control dependence
 						FunctionControlDepMapping[pCalled].insert(CFGDependentValue.begin(), CFGDependentValue.end());
 
-
 						//add return dependence
 						set<ReturnInst *> setRet;
 						GetAllReturnInst(pCalled, setRet);
@@ -1740,9 +1656,23 @@ void InterProcDep::InfeasiblePathDependenceAnalysis(Function * pFunction)
 							vecWorkList.push_back(argBegin);
 							uIndex ++;
 						}
+					}
+					/*
+					else if(MemTransferInst * pMem = dyn_cast<MemTransferInst>(II))
+					{
+						if(MemTypeMapping[pMem].second == MO_LOCAL)
+						{
+							set<Instruction *>::iterator itSetInstBegin = this->MemInstDependentInstMapping[pMem].begin();
+							set<Instruction *>::iterator itSetInstEnd = this->MemInstDependentInstMapping[pMem].end();
 
+							for(; itSetInstBegin != itSetInstEnd ; itSetInstBegin ++)
+							{
+								AddInterDependence(II, *itSetInstBegin, setProcessedInst, setDependence, DependenceValueMapping);
+							}
+						}
 
 					}
+					*/
 					else
 					{
 						vector<Value *> vecOperator;
@@ -1751,9 +1681,29 @@ void InterProcDep::InfeasiblePathDependenceAnalysis(Function * pFunction)
 						itVecValueBegin = vecOperator.begin();
 						itVecValueEnd = vecOperator.end();
 
+						if(isa<MemIntrinsic>(II) )
+						{
+							itVecValueBegin ++;
+						}
+						
 						for(; itVecValueBegin != itVecValueEnd; itVecValueBegin ++ )
 						{
 							AddInterDependence(II, *itVecValueBegin, setProcessedInst, setDependence, DependenceValueMapping);
+						}
+						
+						if(MemTransferInst * pMem = dyn_cast<MemTransferInst>(II))
+						{
+							if(MemTypeMapping[pMem].second == MO_LOCAL)
+							{
+								set<Instruction *>::iterator itSetInstBegin = this->MemInstDependentInstMapping[pMem].begin();
+								set<Instruction *>::iterator itSetInstEnd = this->MemInstDependentInstMapping[pMem].end();
+
+								for(; itSetInstBegin != itSetInstEnd ; itSetInstBegin ++)
+								{
+									AddInterDependence(II, *itSetInstBegin, setProcessedInst, setDependence, DependenceValueMapping);
+								}
+							}
+
 						}
 					}
 				}
@@ -1783,21 +1733,6 @@ void InterProcDep::InfeasiblePathDependenceAnalysis(Function * pFunction)
 							}
 						}
 					}
-					else if(MemTransferInst * pMem = dyn_cast<MemTransferInst>(II))
-					{
-						if(MemTypeMapping[pMem].second == MO_LOCAL)
-						{
-							set<Instruction *>::iterator itSetInstBegin = this->MemInstDependentInstMapping[pMem].begin();
-							set<Instruction *>::iterator itSetInstEnd = this->MemInstDependentInstMapping[pMem].end();
-
-							for(; itSetInstBegin != itSetInstEnd ; itSetInstBegin ++)
-							{
-								AddInterDependence(II, *itSetInstBegin, setProcessedInst, setDependence, DependenceValueMapping);
-							}
-						}
-					}
-
-
 				}
 
 				mapProcessedInstruction[II] = setProcessedInst;
@@ -1806,7 +1741,6 @@ void InterProcDep::InfeasiblePathDependenceAnalysis(Function * pFunction)
 			}
 		}
 	}
-
 
 	map<Function *, set<Value *> >::iterator itMapFuncDepBegin = FunctionControlDepMapping.begin();
 	map<Function *, set<Value *> >::iterator itMapFuncDepEnd = FunctionControlDepMapping.end();
@@ -1817,6 +1751,11 @@ void InterProcDep::InfeasiblePathDependenceAnalysis(Function * pFunction)
 
 		for(Function::iterator BB = pCurrent->begin(); BB != pCurrent->end(); BB ++ )
 		{
+			if(isa<UnreachableInst>(BB->getTerminator()))
+			{
+				continue;
+			}
+
 			for(BasicBlock::iterator II = BB->begin(); II != BB->end(); II ++ )
 			{
 				set<Value *>::iterator itVecValueBegin = itMapFuncDepBegin->second.begin();
@@ -1853,7 +1792,7 @@ void InterProcDep::InfeasiblePathDependenceAnalysis(Function * pFunction)
 				}
 				else if(MemTransferInst * pMem = dyn_cast<MemTransferInst>(pInstruction))
 				{
-					if(MemTypeMapping[pMem].first != MO_LOCAL)
+					if(MemTypeMapping[pMem].second != MO_LOCAL)
 					{
 						setNewDependentValue.insert(pMem);
 						continue;
@@ -1870,7 +1809,26 @@ void InterProcDep::InfeasiblePathDependenceAnalysis(Function * pFunction)
 						continue;
 					}
 
-					if(this->setStoppedFunctions.find(pCalled->getName()) != this->setStoppedFunctions.end() )
+					if(this->LibraryTypeMapping.find(pCalled) != this->LibraryTypeMapping.end() )
+					{
+						if(this->LibraryTypeMapping[pCalled] == LF_PURE)
+						{
+							setNewDependentValue.insert(pInstruction);
+							continue;
+						}
+						else if(this->LibraryTypeMapping[pCalled] == LF_IO)
+						{
+							setNewDependentValue.insert(pInstruction);
+							continue;
+						}
+						else if(this->LibraryTypeMapping[pCalled] == LF_OTHER)
+						{
+							setNewDependentValue.insert(pInstruction);
+							continue;
+						}
+						// for malloc and transpare function, we add all dependence to new set
+					}
+					else if(pCalled->isDeclaration())
 					{
 						setNewDependentValue.insert(pInstruction);
 						continue;
@@ -1921,6 +1879,11 @@ void InterProcDep::InfeasiblePathDependenceAnalysis(Function * pFunction)
 					setNewDependentValue.insert(*itSetTmpBegin);
 				}
 
+				if(pArg->getParent() == pFunction)
+				{
+					setNewDependentValue.insert(pArg); //add for cases where function calls functions
+				}
+
 			}
 			else
 			{
@@ -1953,13 +1916,26 @@ void InterProcDep::InfeasiblePathDependenceAnalysis(Function * pFunction)
 
 				if(pCalled == NULL)
 				{
-					setNewDependentValue.insert(pCurrentValue);
 					continue;
 				}
 
-				if(this->setStoppedFunctions.find(pCalled->getName()) != this->setStoppedFunctions.end() )
+				if(this->LibraryTypeMapping.find(pCalled) != this->LibraryTypeMapping.end() )
 				{
-					setNewDependentValue.insert(pCurrentValue);
+					if(this->LibraryTypeMapping[pCalled] == LF_PURE)
+					{
+						continue;
+					}
+					else if(this->LibraryTypeMapping[pCalled] == LF_IO)
+					{						
+						continue;
+					}
+					else if(this->LibraryTypeMapping[pCalled] == LF_OTHER)
+					{
+						continue;
+					}
+				}
+				else if(pCalled->isDeclaration() )
+				{
 					continue;
 				}
 			}
@@ -1984,12 +1960,7 @@ void InterProcDep::InfeasiblePathDependenceAnalysis(Function * pFunction)
 			this->StartFuncValueDependenceMappingMappingMapping[pFunction][pInstruction->getParent()->getParent()][pInstruction] = itValueDependenceBegin->second;
 		}
 	}
-
-
 }
-
-
-
 
 
 void InterProcDep::InterProcDependenceAnalysis()
@@ -1999,25 +1970,23 @@ void InterProcDep::InterProcDependenceAnalysis()
 
 	DetectRecursiveFunctionCall(RecursiveCalls, nonRecursiveCalls);
 
-	errs() << "Recursive: " << RecursiveCalls.size() << " None Recursive: " << nonRecursiveCalls.size() << "\n";
 	set<Function *>::iterator itSetFuncBegin = nonRecursiveCalls.begin();
 	set<Function *>::iterator itSetFuncEnd   = nonRecursiveCalls.end();
 
 
 	for(; itSetFuncBegin != itSetFuncEnd; itSetFuncBegin ++ )
 	{
-		//errs() << (*itSetFuncBegin)->getName() << "\n";
 		NoneRecursiveDependenceAnalysis(*itSetFuncBegin);
 	}
 
 	itSetFuncBegin = RecursiveCalls.begin();
 	itSetFuncEnd   = RecursiveCalls.end();
 
+
+
 	for(; itSetFuncBegin != itSetFuncEnd; itSetFuncBegin ++ )
 	{
 		InfeasiblePathDependenceAnalysis(*itSetFuncBegin);
 	}
-
-	
 }
 

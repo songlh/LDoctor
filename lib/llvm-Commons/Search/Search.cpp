@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string>
 
 #include "llvm/DebugInfo.h"
 #include "llvm/IR/Function.h"
@@ -20,6 +21,20 @@ using namespace llvm;
 
 namespace llvm_Commons
 {
+
+BasicBlock * SearchBlockByName(Function * pFunction, string sName)
+{
+	for(Function::iterator BB = pFunction->begin(); BB != pFunction->end(); BB ++ )
+	{
+		if(BB->getName() == sName)
+		{
+			return BB;
+		}
+	}	
+
+	return NULL;
+}
+
 
 
 Function * SearchFunctionByName(Module & M, string & strFileName, string & strFunctionName, unsigned uSourceCodeLine)

@@ -118,6 +118,13 @@ void GetDependingValue(Instruction * pInstruction, vector<Value *> & vecDependin
 				}
 				break;
 			}
+		/*
+		case Instruction::Store:
+			{
+				vecDependingValue.push_back(pInstruction->getOperand(0));
+				break;
+			}
+		*/
 		case Instruction::Fence:
 			{
 				break;

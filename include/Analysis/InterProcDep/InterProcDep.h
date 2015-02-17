@@ -11,9 +11,13 @@
 #include "llvm/Pass.h"
 #include "llvm/IR/DataLayout.h"
 
+#include "llvm-Commons/SFReach/SFReach.h"
+#include "llvm-Commons/Config/Config.h"
+
 
 using namespace std;
 using namespace llvm;
+using namespace llvm_Commons;
 
 
 //namespace llvm_Commons
@@ -45,7 +49,7 @@ public:
 	void BuildCallerCalleeMapping(Function * pFunction);
 	void DumpCallerCalleeMapping(Function * pFunction);
 	void AnalyzeMemReadInst(Function * pFunction);
-	int CountLocalLoad(Function * pFunction);
+	int CountLocalLoad(Function * pFunction, set<Function *> & setFunctions);
 	void CollectSideEffectInst(Function * pFunction, set<Instruction *> & setCallSite, set<StoreInst *> & setStore, set<MemIntrinsic *> & setMemIntrics);
 
 
@@ -63,6 +67,7 @@ public:
 
 public:
 	set<Function *> StartFunctionSet;
+
 	map<Function *, map<Function *, set<Function *> > > StartCallerCalleeMappingMapping;
 	map<Function *, map<Function *, set<Instruction *> > > StartCallerCallSiteMappingMapping;
 	map<Function *, map<Function *, set<Function *> > > StartCalleeCallerMappingMapping;
@@ -86,23 +91,19 @@ public:
 
 	map<Function *, map<Function *, map<Argument *, set<Value * > > > > StartFuncArgDependenceMappingMappingMapping;
 
+	map<Function *, LibraryFunctionType>  LibraryTypeMapping;
 
 private:
 	DataLayout * pDL;
+	StructFieldReach * pSFR;
 
 
-	set<string> setPureFunctions;
-	set<string> setMemoryAllocFunctions;
-	set<string> setTransparentFunctions;
-	set<string> setStoppedFunctions;
-
-
-	set<string> setFileIO;
-	set<string> setLibraryFunctions;
 
 	//load and memintrisc dependence
 	map<LoadInst *, set<Instruction *> > LoadDependentInstMapping;
 	map<MemTransferInst *, set<Instruction *> > MemInstDependentInstMapping;
+
+
 
 	Module * pModule;
 

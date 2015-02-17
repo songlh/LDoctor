@@ -1,7 +1,8 @@
 
-
 #include "llvm-Commons/Invariant/InvariantAnalysis.h"
-
+#include "llvm/Support/CallSite.h"
+#include "llvm/IR/Instruction.h"
+#include "llvm/Analysis/ValueTracking.h"
 
 namespace llvm_Commons
 {
@@ -233,7 +234,105 @@ void IndentifyInvariantArray(Function * pF, set<Value *> & setArray, set<Functio
 		}
 	}
 
-	//errs() << "unchanged array: " << setArray.size() << "\n";
+}
+
+
+void BuildScope(Function * pFunction, set<Function *> & setScope, set<Function *> & setLibraries )
+{
+	vector<Function *> vecWorkList;
+	vecWorkList.push_back(pFunction);
+	setScope.insert(pFunction);
+
+	while(vecWorkList.size()>0)
+	{
+		Function * pCurrentFunction = vecWorkList[vecWorkList.size()-1];
+		vecWorkList.pop_back();
+
+		for(Function::iterator BB = pCurrentFunction->begin(); BB != pCurrentFunction->end(); BB ++)
+		{
+			if(isa<UnreachableInst>(BB->getTerminator()))
+			{
+				continue;
+			}
+
+			for(BasicBlock::iterator II = BB->begin(); II != BB->end(); II ++)
+			{
+				if(isa<CallInst>(II) || isa<InvokeInst>(II))
+				{
+					if(isa<DbgInfoIntrinsic>(II))
+					{
+						continue;
+					}
+
+					CallSite cs(II);
+					Function * pCalledFunction = cs.getCalledFunction();
+
+					if(pCalledFunction == NULL)
+					{
+						continue;
+					}
+
+					if(setLibraries.find(pCalledFunction) != setLibraries.end() )
+					{
+						continue;
+					}
+
+					if(pCalledFunction->isDeclaration())
+					{
+						continue;
+					}
+
+					if(setScope.find(pCalledFunction) == setScope.end())
+					{
+						setScope.insert(pCalledFunction);
+						vecWorkList.push_back(pCalledFunction);
+					}
+				}
+			}
+
+		}
+	}
+}
+
+
+bool hasLoopInvariantOperands(Instruction *I, Loop * pLoop)  
+{
+	for (unsigned i = 0, e = I->getNumOperands(); i != e; ++i)
+		if (!beLoopInvariant(I->getOperand(i), pLoop))
+			return false;
+				
+	return true;
+}
+
+
+bool beLoopInvariant(Value *V, Loop * pLoop) 
+{
+	if (Instruction *I = dyn_cast<Instruction>(V))
+		return beLoopInvariant(I, pLoop);
+	return true;  // All non-instructions are loop-invariant.
+}
+
+
+bool beLoopInvariant(Instruction *I, Loop * pLoop) 
+{
+	// Test if the value is already loop-invariant.
+	if (pLoop->isLoopInvariant(I))
+		return true;
+	if (!isSafeToSpeculativelyExecute(I))
+		return false;
+	if (I->mayReadFromMemory())
+		return false;
+	// The landingpad instruction is immobile.
+	if (isa<LandingPadInst>(I))
+		return false;
+
+
+	// Don't hoist instructions with loop-variant operands.
+	for (unsigned i = 0, e = I->getNumOperands(); i != e; ++i)
+		if (!beLoopInvariant(I->getOperand(i), pLoop))
+			return false;
+	
+	return true;
 }
 
 

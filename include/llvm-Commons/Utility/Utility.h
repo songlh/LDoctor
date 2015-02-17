@@ -6,7 +6,9 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/DebugInfo.h"
 
+#include "llvm-Commons/Config/Config.h"
 
 #include <set>
 
@@ -24,6 +26,8 @@ void SearchExitEdgesForLoop( set< Edge > & setExitEdges, Loop * pLoop );
 //search exit edges for a bunch of blocks
 void SearchExitEdgesForBlocks( set<Edge> & setExitEdges, set<BasicBlock *> & setBlocks);
 
+bool IsReachable(BasicBlock * pA, BasicBlock * pB);
+
 //search post dominator for a given loop
 BasicBlock * SearchPostHeader(set< Edge > & , PostDominatorTree * );
 
@@ -34,6 +38,20 @@ void Search2TypeBlocksInLoop(vector<BasicBlock *> & , vector<BasicBlock *> &,
 void Search2TypeBlocksInLoop(set<BasicBlock *> &, set<BasicBlock *> &, Loop *, Function *, PostDominatorTree *, DominatorTree *);
 
 bool PureIntrinsic(llvm::IntrinsicInst * II);
+
+bool CmpValueSet(set<Value *> & setA, set<Value *> & setB);
+
+void GetAllReturnInst(Function * pFunction, set<ReturnInst *> & setRet);
+
+void GetAllReturnSite(Function * pFunction, set<ReturnInst *> & setRet);
+
+void GetAllCallSite(Function * pFunction, set<Instruction *> & setCallSite);
+
+Instruction * GetInstByID(Function * pFunction, unsigned InsID );
+
+void CollectCalleeInsideLoop(Loop * pLoop, set<Function * > & setCallee, map<Function *, set<Instruction *> > & CalleeCallSiteMapping, map<Function *, LibraryFunctionType> & LibraryTypeMapping);
+
+void CollectLoopLatches(Loop * pLoop, set<BasicBlock *> & setLatches);
 
 }
 

@@ -24,7 +24,7 @@ struct Workless : public ModulePass
 
 	bool CollectSideEffectFunction(Function * pFunction);
 	bool BlockWithoutSideEffect(BasicBlock * BB);
-	void ParsePureFunctionList(string & strFileName, Module * pM);
+	//void ParsePureFunctionList(string & strFileName, Module * pM);
 
 
 

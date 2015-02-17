@@ -16,7 +16,7 @@ LOADABLE_MODULE := 1
 #endif
 #endif
 
-USEDLIBS = SFReach.a Search.a LiveAnalysis.a Utility.a
+USEDLIBS = SFReach.a Search.a LiveAnalysis.a Utility.a Config.a
 
 #
 # Include Makefile.common so we know what to do.

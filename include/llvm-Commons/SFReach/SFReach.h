@@ -108,9 +108,12 @@ private:
 	void DebugResult(Function * pFunction);
 	void TestDriver(Module & M);
 
+	void ClearCache();
+
 public:
 	void visit(Function * pFunction);
-
+	void InitToDoSet(set<Function *> & ToDo);
+	void runAnalysis();
 
 
 private:
@@ -138,9 +141,8 @@ private:
 	//cache
 	map<pair<MemFootPrint *, MemFootPrint *>, MemRelationKind> FootPrintPairRelationMapping;
 	map<pair<MemFootPrint *, MemFootPrint *>, MemRelationKind> InterFootPrintPairRelationMapping;
-	//map<Instruction *, vector<MemFootPrint> > CallInstMemFootPrintMapping;
-
-	//map<LoadInst *, set<MemFootPrint *> > LoadFootPrintMapping;
+	
+	set<Function *> setToDo;
 
 public:
 	map<LoadInst *, set<Instruction *> > LoadDependentInstMapping;
@@ -150,7 +152,6 @@ private:
 	AliasAnalysis * pAA;
 	DataLayout * pDL;
 	TargetLibraryInfo * pTLI;
-
 
 };
 

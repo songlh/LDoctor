@@ -168,7 +168,6 @@ void WorklessInstrument::InstrumentWorkless0Star1(Module * pModule, Loop * pLoop
 	else
 	{
 		pMain = pModule->getFunction("main");
-		//pMain->dump();
 	}
 
 	
@@ -227,8 +226,6 @@ void WorklessInstrument::InstrumentWorkless0Star1(Module * pModule, Loop * pLoop
 			}
 		}
 	}
-
-	pMain->dump();
 
 	BasicBlock * pPreHeader = pLoop->getLoopPreheader();
 	if(pPreHeader == NULL)
@@ -381,9 +378,50 @@ void WorklessInstrument::InstrumentWorkless0Or1Star(Module * pModule, Loop * pLo
 				pCall = CallInst::Create(PrintWorkingRatio, vecParams, "", Ins);
 				pCall->setCallingConv(CallingConv::C);
 				pCall->setTailCall(false);
-				//AttributeSet aSet;
 				pCall->setAttributes(aSet);
 			}
+			else if(isa<CallInst>(Ins) || isa<InvokeInst>(Ins))
+			{
+				CallSite cs(Ins);
+				Function * pCalled = cs.getCalledFunction();
+
+				if(pCalled == NULL)
+				{
+					continue;
+				}
+
+				if(pCalled->getName() == "exit" || pCalled->getName() == "_ZL9mysql_endi")
+				{
+					vector<Value*> vecParams;
+					pLoad0 = new LoadInst(numIterations, "", false, Ins);
+					pLoad0->setAlignment(8); 
+					vecParams.push_back(pLoad0);
+					pLoad1 = new LoadInst(numInstances, "", false, Ins); 
+					pLoad1->setAlignment(8);
+					vecParams.push_back(pLoad1);
+
+					pCall = CallInst::Create(this->PrintLoopInfo, vecParams, "", Ins);
+					pCall->setCallingConv(CallingConv::C);
+					pCall->setTailCall(false);
+					AttributeSet aSet;
+					pCall->setAttributes(aSet);
+
+					vecParams.clear();
+					pLoad0 = new LoadInst(numIterations, "", false, Ins); 
+					pLoad0->setAlignment(8); 
+					vecParams.push_back(pLoad0);
+					pLoad1 = new LoadInst(numWorkingIterations, "", false, Ins); 
+					pLoad1->setAlignment(8);
+					vecParams.push_back(pLoad1);
+
+					pCall = CallInst::Create(PrintWorkingRatio, vecParams, "", Ins);
+					pCall->setCallingConv(CallingConv::C);
+					pCall->setTailCall(false);
+					pCall->setAttributes(aSet);
+
+				}
+			}
+
 		}
 	}
 

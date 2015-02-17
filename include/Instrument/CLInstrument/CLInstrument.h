@@ -4,12 +4,15 @@
 #include "llvm/Pass.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 
+#include "llvm-Commons/Config/Config.h"
+
 #include <string>
 #include <set>
 #include <vector>
 
 using namespace llvm;
 using namespace std;
+using namespace llvm_Commons;
 
 struct CrossLoopInstrument : public ModulePass
 {
@@ -26,17 +29,20 @@ struct CrossLoopInstrument : public ModulePass
 	void SetupGlobals(Module * );
 	void SetupStruct(Module *);
 
-	void InitlizeFuncSet();
+	//void InitlizeFuncSet();
 
 //
 	BasicBlock * SearchPostDominatorForLoop(Loop * pLoop,  PostDominatorTree * pPDT );
 	void CreateIfElseIfBlock(Loop * pInnerLoop, BasicBlock * pPostDominator, vector<BasicBlock *> & vecCondition);
 	void CloneInnerLoop(Loop * pLoop, BasicBlock * pPostDominator, vector<BasicBlock *> & vecAdd, ValueToValueMapTy & VMap);
-	void CloneFunctionCalled(set<BasicBlock *> & setBlocksInLoop, ValueToValueMapTy & VMap);
+	
+	void CloneFunctionCalled(set<BasicBlock *> & setBlocksInLoop, ValueToValueMapTy & VCalleeMap, map<Function *, set<Instruction *> > & FuncCallSiteMapping);
+
+
 	void RemapInstruction(Instruction *I, ValueToValueMapTy &VMap);
-	void ParseMonitoredInstFile(string & sFileName, Module * pModule);
-	void CollectInstrumentedInst(set<int> & setIndex, Loop * pLoop, vector<LoadInst *> & vecLoad, vector<Instruction *> & vecIn, vector<Instruction *> & vecOut );
-	void AddHooksToInnerLoop(vector<BasicBlock *> & vecAdd, ValueToValueMapTy & VMap, vector<LoadInst *> & vecLoad, vector<Instruction *> & vecIn, vector<Instruction *> & vecOut);
+	//void ParseMonitoredInstFile(string & sFileName, Module * pModule);
+	void CollectInstrumentedInst(set<int> & setIndex, Loop * pLoop, vector<LoadInst *> & vecLoad, vector<Instruction *> & vecIn, vector<Instruction *> & vecOut, vector<MemTransferInst *> & vecMem );
+	void AddHooksToInnerLoop(vector<BasicBlock *> & vecAdd, ValueToValueMapTy & VMap, vector<LoadInst *> & vecLoad, vector<Instruction *> & vecIn, vector<Instruction *> & vecOut, vector<MemTransferInst *> & vecMem);
 
 	void InstrumentInnerLoop(Loop * pLoop, PostDominatorTree * PDT);
 	void InstrumentOuterLoop(Loop * pLoop);
@@ -46,13 +52,11 @@ struct CrossLoopInstrument : public ModulePass
 	void InlineHookDelimit(Instruction * II);
 	void InlineHookInst(Instruction * pI, Instruction * II);
 	void InlineHookLoad(LoadInst * pLoad);
+	void InlineHookMem(MemTransferInst * pMem, Instruction * II);
 
 //	
+	map<Function *, LibraryFunctionType>  LibraryTypeMapping;
 	set<int> setInstIndex;
-	set<Instruction *> setMonitoredInstInCallee;
-
-
-
 	vector<pair<Function *, int> > vecParaIndex;
 	bool bGivenOuterLoop;
 
@@ -65,6 +69,8 @@ struct CrossLoopInstrument : public ModulePass
 	IntegerType *LongType ;
 	IntegerType *IntType  ;
 	PointerType *CharStarType ;
+	PointerType *LongStarType;
+
 	Type * VoidType ;
 	Type * VoidPointerType;
 
@@ -75,6 +81,7 @@ struct CrossLoopInstrument : public ModulePass
 	StructType * struct_stParaRecord;
 	StructType * struct_stDelimiterRecord;
 	StructType * struct_stLogRecord;
+	StructType * struct_stMemRecord;
 	StructType * union_anon_CPI;
 
 //constants
@@ -83,8 +90,14 @@ struct CrossLoopInstrument : public ModulePass
 	ConstantInt * ConstantInt2;
 	ConstantInt * ConstantInt3;
 	ConstantInt * ConstantInt4;
+	ConstantInt * ConstantInt5;
 	ConstantInt * ConstantInt10;
 	ConstantInt * ConstantInt32;
+
+	ConstantInt * ConstantLong0;
+	ConstantInt * ConstantLong1;
+	ConstantInt * ConstantLong32;
+	ConstantInt * ConstantLong40;
 
 	ConstantInt * ConstantIntFalse;
 
@@ -121,13 +134,15 @@ struct CrossLoopInstrument : public ModulePass
 	Constant * SAMPLE_RATE_ptr;
 	Constant * Output_Format_String;
 	
-	
+/*	
 	set<string> setPureFunctions;
 	set<string> setMemoryAllocFunctions;
+	set<string> setTransparentFunctions;
 	set<string> setFileIO;
+	set<string> setStoppedFunctions;
 	set<string> setLibraryFunctions;
 
-
+*/
 };
 
 #endif

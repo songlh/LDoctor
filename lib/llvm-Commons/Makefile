@@ -8,6 +8,6 @@ LEVEL=../..
 #
 # List all of the subdirectories that we will compile.
 #
-DIRS=SFReach Search Invariant CFG Dependence ID LiveAnalysis Utility
+DIRS=SFReach Search Invariant CFG Dependence ID LiveAnalysis Utility Config Clone Loop LinkList
 
 include $(LEVEL)/Makefile.common
