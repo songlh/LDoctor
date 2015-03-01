@@ -8,6 +8,7 @@
 
 #include "llvm-Commons/Search/Search.h"
 #include "llvm-Commons/Utility/Utility.h"
+#include "llvm-Commons/Loop/Loop.h"
 #include "Instrument/CLInstrument/CLInstrument.h"
 
 #include "llvm/Analysis/LoopInfo.h"
@@ -322,8 +323,6 @@ void CrossLoopInstrument::SetupStruct(Module * pModule)
 	}
 }
 
-
-
 void CrossLoopInstrument::SetupHooks(Module * pModule)
 {
 	vector<Type*> ArgTypes;
@@ -468,7 +467,6 @@ void CrossLoopInstrument::SetupGlobals(Module * pModule)
 	this->iBufferIndex_CPI->setAlignment(8);
 	this->iBufferIndex_CPI->setInitializer(this->ConstantLong0);
 
-	
 	//"SAMPLE_RATE" string
 	ArrayType* ArrayTy12 = ArrayType::get(IntegerType::get(pModule->getContext(), 8), 12);
 	GlobalVariable * pArrayStr = new GlobalVariable(*pModule, ArrayTy12, true, GlobalValue::PrivateLinkage, 0, "");
@@ -848,9 +846,7 @@ void CrossLoopInstrument::InlineHookDelimit(Instruction * II)
 	BinaryOperator * pAdd = BinaryOperator::Create(Instruction::Add, pLoadIndex, pLoadRecordSize, "", II);
 	pStore = new StoreInst(pAdd, this->iBufferIndex_CPI, false, II);
 	pStore->setAlignment(8);
-
 }
-
 
 void CrossLoopInstrument::InlineHookMem(MemTransferInst * pMem, Instruction * II)
 {
@@ -1260,7 +1256,7 @@ void CrossLoopInstrument::CloneFunctionCalled(set<BasicBlock *> & setBlocksInLoo
 				ConstantInt *CI = dyn_cast<ConstantInt>(Node->getOperand(0));
 				assert(CI);
 			
-				if(this->setInstIndex.find(CI->getZExtValue()) != this->setInstIndex.end())
+				if(this->MonitoredElems.MonitoredInst.find(CI->getZExtValue()) != this->MonitoredElems.MonitoredInst.end())
 				{
 					if(isa<LoadInst>(II) || isa<CallInst>(II) || isa<InvokeInst>(II) || isa<MemTransferInst>(II) )
 					{
@@ -1367,7 +1363,6 @@ BasicBlock * CrossLoopInstrument::SearchPostDominatorForLoop(Loop * pLoop,  Post
 		return ExitBlocks[0];
 	}
 
-	
 	BasicBlock * pPostDominator = ExitBlocks[0];
 
 	for(unsigned long i = 1; i < ExitBlocks.size(); i++ )
@@ -1397,6 +1392,7 @@ BasicBlock * CrossLoopInstrument::SearchPostDominatorForLoop(Loop * pLoop,  Post
 		pPostDominator = *(setExitBlocks.begin());
 		return pPostDominator;
 	}
+
 
 /*
 	set<BasicBlock *>::iterator itSetBegin = setExitBlocks.begin();
@@ -1439,7 +1435,7 @@ BasicBlock * CrossLoopInstrument::SearchPostDominatorForLoop(Loop * pLoop,  Post
 }
 
 
-void CrossLoopInstrument::CreateIfElseIfBlock(Loop * pInnerLoop, BasicBlock * pPostDominator, vector<BasicBlock *> & vecAdded)
+void CrossLoopInstrument::CreateIfElseIfBlock(Loop * pInnerLoop, vector<BasicBlock *> & vecAdded)
 {
 	BasicBlock * pCondition1 = NULL;
 	BasicBlock * pCondition2 = NULL;
@@ -1463,33 +1459,9 @@ void CrossLoopInstrument::CreateIfElseIfBlock(Loop * pInnerLoop, BasicBlock * pP
 	Function * pInnerFunction = pInnerLoop->getHeader()->getParent();
 	Module * pModule = pInnerFunction->getParent();
 
-	SmallVector<BasicBlock*, 8> OutsideBlocks;
+
+	pCondition1 = pInnerLoop->getLoopPreheader();
 	BasicBlock * pHeader = pInnerLoop->getHeader();
-
-	for(pred_iterator PI = pred_begin(pHeader), PE = pred_end(pHeader); PI != PE; ++PI)
-	{
-		BasicBlock *P = *PI;
-		if(!pInnerLoop->contains(P))
-		{
-			if(isa<IndirectBrInst>(P->getTerminator()))
-			{
-				errs() << "IndirectBrInst toward loop header\n";
-				exit(0);
-			}
-
-			OutsideBlocks.push_back(P);
-		}
-	}
-
-	if(!pHeader->isLandingPad())
-	{
-		pCondition1 = SplitBlockPredecessors(pHeader, OutsideBlocks, ".if1.CPI", this);
-	}
-	else
-	{
-		errs() << "Header isLandingPad!\n" ;
-		exit(0);
-	}
 
 	pCondition2 = BasicBlock::Create(pModule->getContext(), ".if2.CPI", pInnerFunction, 0);
 	
@@ -1513,7 +1485,6 @@ void CrossLoopInstrument::CreateIfElseIfBlock(Loop * pInnerLoop, BasicBlock * pP
 		pStoreNew->setAlignment(8);
 	}
 
-
 	pLoad1 = new LoadInst(this->numGlobalCounter, "", false, pTerminator);
 	pLoad1->setAlignment(8);
 	pLoad2 = new LoadInst(this->CURRENT_SAMPLE, "", false, pTerminator);
@@ -1521,7 +1492,6 @@ void CrossLoopInstrument::CreateIfElseIfBlock(Loop * pInnerLoop, BasicBlock * pP
 	pCmp = new ICmpInst(pTerminator, ICmpInst::ICMP_SLT, pLoad1, pLoad2, "");
 	pBranch = BranchInst::Create(pHeader, pCondition2, pCmp );
 	ReplaceInstWithInst(pTerminator, pBranch);
-
 
 	//condition2
 	pBinary = BinaryOperator::Create(Instruction::Add, pLoad2, this->ConstantLong1, "", pCondition2);
@@ -1536,6 +1506,7 @@ void CrossLoopInstrument::CreateIfElseIfBlock(Loop * pInnerLoop, BasicBlock * pP
   	pCall->setAttributes(emptySet);
 
   	CastInst * pCast = CastInst::CreateIntegerCast(pCall, this->LongType, true, "", pIfBody);
+  	//pBinary = BinaryOperator::Create(Instruction::Add, pLoad2, pCast, "add", pIfBody);
   	pStore = new StoreInst(pCast, this->CURRENT_SAMPLE, false, pIfBody);
   	pStore->setAlignment(8);
 
@@ -1543,18 +1514,18 @@ void CrossLoopInstrument::CreateIfElseIfBlock(Loop * pInnerLoop, BasicBlock * pP
   	pStore->setAlignment(8);
   	BranchInst::Create(pElseBody, pIfBody);
 
-  	if(pPostDominator != NULL)
-  	{
-  		BranchInst::Create(pPostDominator, pElseBody);
-  	}
+  	//if(pPostDominator != NULL)
+  	//{
+  	//	BranchInst::Create(pPostDominator, pElseBody);
+  	//}
 
 	vecAdded.push_back(pCondition1);
 	vecAdded.push_back(pCondition2);
 	vecAdded.push_back(pIfBody);
 	vecAdded.push_back(pElseBody);
-
-	
 }
+
+
 
 
 void CrossLoopInstrument::RemapInstruction(Instruction *I, ValueToValueMapTy &VMap) 
@@ -1581,10 +1552,9 @@ void CrossLoopInstrument::RemapInstruction(Instruction *I, ValueToValueMapTy &VM
 }
 
 
-void CrossLoopInstrument::CloneInnerLoop(Loop * pLoop, BasicBlock * pPostDominator, vector<BasicBlock *> & vecAdd, ValueToValueMapTy & VMap)
+void CrossLoopInstrument::CloneInnerLoop(Loop * pLoop, vector<BasicBlock *> & vecAdd, ValueToValueMapTy & VMap)
 {
 	Function * pFunction = pLoop->getHeader()->getParent();
-	BranchInst * pBranch;
 
 	SmallVector<BasicBlock *, 4> ExitBlocks;
 	pLoop->getExitBlocks(ExitBlocks);
@@ -1596,23 +1566,16 @@ void CrossLoopInstrument::CloneInnerLoop(Loop * pLoop, BasicBlock * pPostDominat
 		setExitBlocks.insert(ExitBlocks[i]);
 	}
 
-	if(pPostDominator != NULL)
+	for(unsigned long i = 0; i < ExitBlocks.size(); i++ )
 	{
-		VMap[pPostDominator] = pPostDominator;
-	}
-	else
-	{
-
-		for(unsigned long i = 0; i < ExitBlocks.size(); i++ )
-		{
-			VMap[ExitBlocks[i]] = ExitBlocks[i];
-		}
+		VMap[ExitBlocks[i]] = ExitBlocks[i];
 	}
 
 	vector<BasicBlock *> ToClone;
 	vector<BasicBlock *> BeenCloned;
 
 	set<BasicBlock *> setCloned;
+	
 	//clone loop
 	ToClone.push_back(pLoop->getHeader());
 
@@ -1677,21 +1640,11 @@ void CrossLoopInstrument::CloneInnerLoop(Loop * pLoop, BasicBlock * pPostDominat
 
 	//add to the else if body
 	BasicBlock * pCondition1 = vecAdd[0];
-	//BasicBlock * pCondition2 = vecAdd[1];
-	//BasicBlock * pIfBody     = vecAdd[2];
 	BasicBlock * pElseBody   = vecAdd[3];
 
-
 	BasicBlock * pClonedHeader = cast<BasicBlock>(VMap[pLoop->getHeader()]);
-	if(pPostDominator != NULL)
-	{
-		pBranch = dyn_cast<BranchInst>(pElseBody->getTerminator());
-		pBranch->setSuccessor(0, pClonedHeader);
-	}
-	else
-	{	
-		BranchInst::Create(pClonedHeader, pElseBody);
-	}
+
+	BranchInst::Create(pClonedHeader, pElseBody);
 
 	for(BasicBlock::iterator II = pClonedHeader->begin(); II != pClonedHeader->end(); II ++ )
 	{
@@ -1710,10 +1663,9 @@ void CrossLoopInstrument::CloneInnerLoop(Loop * pLoop, BasicBlock * pPostDominat
 		}
 	}
 
-
-	if(pPostDominator != NULL)
+	for(unsigned long i = 0; i < ExitBlocks.size(); i++ )
 	{
-		for(BasicBlock::iterator II = pPostDominator->begin(); II != pPostDominator->end(); II ++)
+		for(BasicBlock::iterator II = ExitBlocks[i]->begin(); II != ExitBlocks[i]->end(); II ++ )
 		{
 			if(PHINode * pPHI = dyn_cast<PHINode>(II))
 			{
@@ -1736,260 +1688,122 @@ void CrossLoopInstrument::CloneInnerLoop(Loop * pLoop, BasicBlock * pPostDominat
 			}
 		}
 	}
-	else
-	{		
-		for(unsigned long i = 0; i < ExitBlocks.size(); i++ )
-		{
-			for(BasicBlock::iterator II = ExitBlocks[i]->begin(); II != ExitBlocks[i]->end(); II ++ )
-			{
-				if(PHINode * pPHI = dyn_cast<PHINode>(II))
-				{
-					unsigned numIncomming = pPHI->getNumIncomingValues();
-					for(unsigned i = 0; i<numIncomming; i++)
-					{
-						BasicBlock * incommingBlock = pPHI->getIncomingBlock(i);
-						if(VMap.find(incommingBlock) != VMap.end() )
-						{
-							Value * incommingValue = pPHI->getIncomingValue(i);
+}
 
-							if(VMap.find(incommingValue) != VMap.end() )
-							{
-								incommingValue = VMap[incommingValue];
-							}
+void CrossLoopInstrument::AddHooksToSkippableLoad(set<LoadInst *> & setLoad, LoopInfo * pLI, ValueToValueMapTy &VMap, set<Value *> & setMonitoredValue, BasicBlock * pCondition2)
+{
+	set<LoadInst *>::iterator itSetLoadBegin = setLoad.begin();
+	set<LoadInst *>::iterator itSetLoadEnd   = setLoad.end();
 
-							pPHI->addIncoming(incommingValue, cast<BasicBlock>(VMap[incommingBlock]));
-						}
-					} 
-				}
-			}
-		}
-	}
+	BasicBlock * pNewHeader = pCondition2->getTerminator()->getSuccessor(0);
 
-	map<Instruction *, set<Instruction *> > escapeInst ;
+	Loop * pClonedLoop = pLI->getLoopFor(pNewHeader);
 
-	set<BasicBlock *>::iterator itSetBegin = setCloned.begin();
-	set<BasicBlock *>::iterator itSetEnd = setCloned.end();
-
-	for(; itSetBegin != itSetEnd; itSetBegin ++)
+	for(; itSetLoadBegin != itSetLoadEnd; itSetLoadBegin ++ )
 	{
-		for(BasicBlock::iterator II = (*itSetBegin)->begin(); II != (*itSetBegin)->end(); II ++ )
-		{
-			for(Value::use_iterator ub = II->use_begin(); ub != II->use_end(); ub++)
-			{
-				if(Instruction * pInstruction = dyn_cast<Instruction>(*ub) )
-				{
-					if(pPostDominator != NULL)
-					{
-						if(pInstruction->getParent() == pPostDominator && isa<PHINode>(pInstruction) )
-						{
-							continue;
-						}
-					}
-					else
-					{
-						if(setExitBlocks.find(pInstruction->getParent()) != setExitBlocks.end() && isa<PHINode>(pInstruction))
-						{
-							continue;
-						}
-					}
+		LoadInst * pCurrentLoad = *itSetLoadBegin;
+		LoadInst * pClonedLoad = cast<LoadInst>(VMap[pCurrentLoad]);
 
-					if(setCloned.find(pInstruction->getParent()) == setCloned.end() )
-					{
-						escapeInst[II].insert(pInstruction);
-					}
+		if(this->PossibleSkipLoadInfoMapping[pCurrentLoad][1].size() != 1 )
+		{	
+			InlineHookLoad(pClonedLoad);
+			continue;
+		}
+
+		if(this->PossibleSkipLoadInfoMapping[pCurrentLoad][2].size() != 1)
+		{
+			InlineHookLoad(pClonedLoad);
+			continue;
+		}
+
+		Loop * pCurrentLoop = pLI->getLoopFor(pClonedLoad->getParent());
+
+		Value * pInit = *(this->PossibleSkipLoadInfoMapping[pCurrentLoad][1].begin());
+
+		if(setMonitoredValue.find(pInit) == setMonitoredValue.end())
+		{
+			if(Argument * pArg = dyn_cast<Argument>(pInit))
+			{
+				InlineHookPara(pArg, pCondition2->getTerminator());
+			}
+			else if(Instruction * pInst = dyn_cast<Instruction>(pInit))
+			{
+				if(pCurrentLoop == pClonedLoop)
+				{
+					InlineHookInst(pInst, pCondition2->getTerminator());
+				}
+				else if(VMap.find(pInst) == VMap.end())
+				{
+					InlineHookInst(pInst, pCondition2->getTerminator());
+				}
+				else
+				{
+					BasicBlock * pPreHeader = pCurrentLoop->getLoopPreheader();
+					Instruction * pClonedInst = cast<Instruction>(VMap[pInst]);
+					InlineHookInst(pClonedInst, pPreHeader->getTerminator());
 				}
 			}
 		}
+
+
+		Value * pIndexValue = *(this->PossibleSkipLoadInfoMapping[pCurrentLoad][2].begin());
+
+		if(setMonitoredValue.find(pIndexValue) == setMonitoredValue.end())
+		{
+			assert(isa<Instruction>(pIndexValue));
+			Instruction * pInst = cast<Instruction>(pIndexValue);
+			Instruction * pClonedInst = cast<Instruction>(VMap[pInst]);
+
+			SmallVector<BasicBlock*, 8> ExitBlocks;
+			pCurrentLoop->getExitBlocks(ExitBlocks);
+
+			set<BasicBlock *> ExitBlockSet(ExitBlocks.begin(), ExitBlocks.end());
+
+			set<BasicBlock *>::iterator itSetBlockBegin = ExitBlockSet.begin();
+			set<BasicBlock *>::iterator itSetBlockEnd = ExitBlockSet.end();
+
+			for(; itSetBlockBegin != itSetBlockEnd; itSetBlockBegin ++ )
+			{
+				if(pCurrentLoop == pClonedLoop)
+				{
+					BasicBlock * pExit = RewriteLoopExitBlock(pCurrentLoop, *itSetBlockBegin, this);
+					InlineHookInst(pClonedInst, pExit->getFirstInsertionPt());
+				}
+				else
+				{
+					InlineHookInst(pClonedInst, (*itSetBlockBegin)->getFirstInsertionPt());
+				}		
+			}
+		}
+		
 	}
-
-
-	if(escapeInst.size() > 0)
-	{
-		DominatorTree * DT = &getAnalysis<DominatorTree>(*pFunction);
-
-		if(pPostDominator != NULL)
-		{
-			Instruction * pBegin = pPostDominator->begin();
-
-			map<Instruction *, set<Instruction *> >::iterator itMapBegin = escapeInst.begin();
-			map<Instruction *, set<Instruction *> >::iterator itMapEnd   = escapeInst.end();
-
-			for(; itMapBegin != itMapEnd; itMapBegin ++)
-			{
-				vector<BasicBlock *> vecToAdd;
-				BasicBlock * pBlock = itMapBegin->first->getParent();
-
-				for(pred_iterator PI = pred_begin(pPostDominator); PI != pred_end(pPostDominator); PI ++ )
-				{
-					if(setCloned.find(*PI) == setCloned.end())
-					{
-						continue;
-					}
-
-					if(DT->dominates(pBlock, *PI))
-					{
-						vecToAdd.push_back(*PI);
-					}
-				}
-
-				PHINode * pPHI = PHINode::Create(itMapBegin->first->getType(), 2 * vecToAdd.size(), "", pBegin );
-
-				vector<BasicBlock *>::iterator itBlockBegin = vecToAdd.begin();
-				vector<BasicBlock *>::iterator itBlockEnd = vecToAdd.end();
-
-				for(; itBlockBegin != itBlockEnd; itBlockBegin ++ )
-				{
-					pPHI->addIncoming(itMapBegin->first, *itBlockBegin);
-					pPHI->addIncoming(cast<Instruction>(VMap[itMapBegin->first]), cast<BasicBlock>(VMap[*itBlockBegin]));
-				}
-
-				set<Instruction *>::iterator itSetBegin = itMapBegin->second.begin();
-				set<Instruction *>::iterator itSetEnd   = itMapBegin->second.end();
-
-				for(; itSetBegin != itSetEnd; itSetBegin ++ )
-				{
-					for(unsigned i = 0; i < (*itSetBegin)->getNumOperands(); i ++ )
-					{
-						if((*itSetBegin)->getOperand(i) == itMapBegin->first)
-						{
-							(*itSetBegin)->setOperand(i, pPHI);
-						}
-					}
-				}
-			}
-		}
-		else
-		{
-			map<Instruction *, set<Instruction *> >::iterator itMapBegin = escapeInst.begin();
-			map<Instruction *, set<Instruction *> >::iterator itMapEnd   = escapeInst.end();
-
-			for(; itMapBegin != itMapEnd; itMapBegin ++ )
-			{
-				set<BasicBlock *>::iterator itSetBegin = setExitBlocks.begin();
-				set<BasicBlock *>::iterator itSetEnd   = setExitBlocks.end();
-
-				for(; itSetBegin != itSetEnd; itSetBegin ++ )
-				{
-					//errs() << (*itSetBegin)->getName() << "\n";
-					//Instruction * pBegin = (*itSetBegin)->begin();
-					vector<BasicBlock *> vecToAdd;
-					BasicBlock * pBlock = itMapBegin->first->getParent();
-
-					for(pred_iterator PI = pred_begin(*itSetBegin); PI != pred_end(*itSetBegin); PI ++ )
-					{
-						if(setCloned.find(*PI) == setCloned.end())
-						{
-							continue;
-						}
-
-						if(DT->dominates(pBlock, *PI))
-						{
-							vecToAdd.push_back(*PI);
-						}
-					}
-
-					if(vecToAdd.size() == 0)
-					{
-						continue;
-					}
-
-					set<Instruction *>::iterator itSetInstBegin = itMapBegin->second.begin();
-					set<Instruction *>::iterator itSetInstEnd   = itMapBegin->second.end(); 
-
-					if(itMapBegin->second.size() == 1 && isa<PHINode>((*itSetInstBegin)))
-					{
-						unsigned i;
-						
-						for(i = 0; i < (*itSetInstBegin)->getNumOperands(); i ++ )
-						{
-							if((*itSetInstBegin)->getOperand(i) == itMapBegin->first)
-							{
-								break;
-							}
-						}
-
-						BasicBlock * incommingBlock = cast<PHINode>(*itSetInstBegin)->getIncomingBlock(i);
-
-						if(!DT->dominates(*itSetBegin, incommingBlock))
-						{
-							continue;
-						}
-
-					}
-					else
-					{
-						bool bFlag = false;
-
-						for(; itSetInstBegin != itSetInstEnd; itSetInstBegin ++ )
-						{
-							if(!DT->dominates(*itSetBegin, (*itSetInstBegin)->getParent() ))
-							{
-								bFlag = true;
-								break;
-							}
-						}
-
-						if(bFlag)
-						{
-							continue;
-						}
-
-					}
-
-					PHINode * pPHI = PHINode::Create(itMapBegin->first->getType(), 2 * vecToAdd.size(), "", (*itSetBegin)->begin() );
-
-					vector<BasicBlock *>::iterator itBlockBegin = vecToAdd.begin();
-					vector<BasicBlock *>::iterator itBlockEnd = vecToAdd.end();
-
-					for(; itBlockBegin != itBlockEnd; itBlockBegin ++ )
-					{
-						pPHI->addIncoming(itMapBegin->first, *itBlockBegin);
-						pPHI->addIncoming(cast<Instruction>(VMap[itMapBegin->first]), cast<BasicBlock>(VMap[*itBlockBegin]));
-					}
-
-					itSetInstBegin = itMapBegin->second.begin();
-					itSetInstEnd   = itMapBegin->second.end();
-
-					for(; itSetInstBegin != itSetInstEnd; itSetInstBegin ++ )
-					{
-						for(unsigned i = 0; i < (*itSetInstBegin)->getNumOperands(); i ++ )
-						{
-							if((*itSetInstBegin)->getOperand(i) == itMapBegin->first)
-							{
-								(*itSetInstBegin)->setOperand(i, pPHI);
-							}
-						}
-					}
-
-				}
-			}
-		}
-	}
-
-	//pFunction->dump();
 
 }
 
+
 void CrossLoopInstrument::AddHooksToInnerLoop(vector<BasicBlock *> & vecAdd, ValueToValueMapTy & VMap, vector<LoadInst *> & vecLoad, vector<Instruction *> & vecIn, vector<Instruction *> & vecOut, vector<MemTransferInst *> & vecMem)
 {
-
 	BasicBlock * pCondition2 = vecAdd[1];
 	BasicBlock * pElseBody = vecAdd[3];
+
 	Function * pCurrent = pElseBody->getParent();
 
 	AttributeSet attSet;
-	TerminatorInst * pTerminator = pCondition2->getTerminator();
+	BasicBlock::iterator pFirstInsert = pCondition2->getFirstInsertionPt();
 
-	InlineHookDelimit(pTerminator);
+	InlineHookDelimit(pFirstInsert);
 
-	pTerminator = pElseBody->getTerminator();
-	vector<pair<Function *, int> >::iterator itParaBegin = this->vecParaIndex.begin();
-	vector<pair<Function *, int> >::iterator itParaEnd   = this->vecParaIndex.end();
+	TerminatorInst * pTerminator = pElseBody->getTerminator();
+	vector<pair<Function *, int> >::iterator itParaBegin = this->MonitoredElems.MonitoredPara.begin();
+	vector<pair<Function *, int> >::iterator itParaEnd   = this->MonitoredElems.MonitoredPara.end();
+
+	set<Value *> setMonitoredValue;
 
 	for(; itParaBegin != itParaEnd; itParaBegin ++)
 	{
 		Argument * pArg = NULL;
 		int iIndex = 0;
+
 		for(Function::arg_iterator argBegin = itParaBegin->first->arg_begin(); argBegin != itParaBegin->first->arg_end(); argBegin ++)
 		{
 			if(iIndex == itParaBegin->second)
@@ -1997,11 +1811,13 @@ void CrossLoopInstrument::AddHooksToInnerLoop(vector<BasicBlock *> & vecAdd, Val
 				pArg = argBegin;
 				break;
 			}
+
 			iIndex ++;
 		}
 
 		if(pCurrent == itParaBegin->first)
 		{	
+			setMonitoredValue.insert(pArg);
 			InlineHookPara(pArg, pTerminator);
 		}
 	}
@@ -2009,27 +1825,23 @@ void CrossLoopInstrument::AddHooksToInnerLoop(vector<BasicBlock *> & vecAdd, Val
 	vector<Instruction *>::iterator itInstVecBegin = vecOut.begin();
 	vector<Instruction *>::iterator itInstVecEnd = vecOut.end();
 	
+
 	for(; itInstVecBegin != itInstVecEnd; itInstVecBegin ++ )
 	{
 		InlineHookInst(*itInstVecBegin, pTerminator);
+		setMonitoredValue.insert(*itInstVecBegin);
 	}
 
-	vector<LoadInst *>::iterator itLoadVecBegin = vecLoad.begin();
-	vector<LoadInst *>::iterator itLoadVecEnd = vecLoad.end();
-
-	for(; itLoadVecBegin != itLoadVecEnd; itLoadVecBegin++ )
-	{
-		LoadInst * pLoad = cast<LoadInst>(VMap[*itLoadVecBegin]);
-		InlineHookLoad(pLoad);
-	}
-	
 	vector<Instruction *>::iterator itInstInBegin = vecIn.begin();
 	vector<Instruction *>::iterator itInstInEnd   = vecIn.end();
+
+	set<Instruction *> setMonitoredInInst;
 
 	for(; itInstInBegin != itInstInEnd; itInstInBegin ++ )
 	{
 		Instruction * pInst = cast<Instruction>(VMap[*itInstInBegin]);
 		InlineHookInst(pInst, pInst->getParent()->getTerminator());
+		setMonitoredValue.insert(*itInstInBegin);
 	}
 
 	vector<MemTransferInst *>::iterator itMemBegin = vecMem.begin();
@@ -2039,6 +1851,35 @@ void CrossLoopInstrument::AddHooksToInnerLoop(vector<BasicBlock *> & vecAdd, Val
 	{
 		MemTransferInst * pMem = cast<MemTransferInst>(VMap[*itMemBegin]);
 		InlineHookMem(pMem, pMem->getParent()->getTerminator());
+	}
+
+	vector<LoadInst *>::iterator itLoadVecBegin = vecLoad.begin();
+	vector<LoadInst *>::iterator itLoadVecEnd = vecLoad.end();
+
+	set<LoadInst *> setSkippedLoad;
+
+	for(; itLoadVecBegin != itLoadVecEnd; itLoadVecBegin++ )
+	{
+		LoadInst * pLoad = cast<LoadInst>(VMap[*itLoadVecBegin]);
+
+		if(this->PossibleSkipLoadInfoMapping.find(*itLoadVecBegin) != this->PossibleSkipLoadInfoMapping.end())
+		{
+			setSkippedLoad.insert(*itLoadVecBegin);
+		}
+		else
+		{ 
+			InlineHookLoad(pLoad);
+		}
+	}
+
+	if(setSkippedLoad.size() > 0)
+	{
+		LoadInst * bFirstLoad = (*setSkippedLoad.begin());
+		Function * pCurrentFunction = bFirstLoad->getParent()->getParent();
+		LoopInfo * pCurrentLI = &(getAnalysis<LoopInfo>(*pCurrentFunction));
+		
+		AddHooksToSkippableLoad(setSkippedLoad, pCurrentLI, VMap, setMonitoredValue, pElseBody);
+
 	}
 }
 
@@ -2063,24 +1904,22 @@ void CrossLoopInstrument::InstrumentInnerLoop(Loop * pInnerLoop, PostDominatorTr
 	vector<Instruction *> vecOut;
 	vector<MemTransferInst *> vecMem;
 
-	CollectInstrumentedInst(this->setInstIndex, pInnerLoop, vecLoad, vecIn, vecOut, vecMem);
+	CollectInstrumentedInst(this->MonitoredElems.MonitoredInst, pInnerLoop, vecLoad, vecIn, vecOut, vecMem);
 
 	//search the post dominator of the given loop
-	BasicBlock * pPostDominator = SearchPostDominatorForLoop(pInnerLoop, PDT);
-
+	//BasicBlock * pPostDominator = SearchPostDominatorForLoop(pInnerLoop, PDT);
 
 	//created auxiliary basic block
 	vector<BasicBlock *> vecAdd;
-	CreateIfElseIfBlock(pInnerLoop, pPostDominator, vecAdd);
+	CreateIfElseIfBlock(pInnerLoop, vecAdd);
 	
 	//clone loop
 	ValueToValueMapTy VMap;
-	CloneInnerLoop(pInnerLoop, pPostDominator, vecAdd, VMap);
+	CloneInnerLoop(pInnerLoop, vecAdd, VMap);
 
 	//add loop related hooks
 	AddHooksToInnerLoop(vecAdd, VMap, vecLoad, vecIn, vecOut, vecMem);
 
-	
 	map<Function *, set<Instruction *> >::iterator itMapBegin = FuncCallSiteMapping.begin();
 	map<Function *, set<Instruction *> >::iterator itMapEnd   = FuncCallSiteMapping.end();
 
@@ -2113,72 +1952,59 @@ void CrossLoopInstrument::InstrumentInnerLoop(Loop * pInnerLoop, PostDominatorTr
 	}
 }
 
-/*
-void CrossLoopInstrument::ParseMonitoredInstFile(string & sFileName, Module * pModule)
+void CrossLoopInstrument::ParseInstFile(Function * pInnerFunction, Module * pModule)
 {
-	string line;
-	ifstream iFile(sFileName.c_str());
+	ParseFeaturedInstFile(strMonitorInstFile, pModule, this->MonitoredElems);
 
-	if(iFile.is_open())
+	for(size_t i = 0; i < this->MonitoredElems.vecFileContent.size(); i ++ )
 	{
-		while (getline(iFile,line))
+		vector<vector<pair<int, int > > > vecIndex;
+		if(PossibleArrayAccess(this->MonitoredElems.vecFileContent[i], vecIndex))
 		{
-			if(line.find("//--") == 0)
+			LoadInst * pLoad = cast<LoadInst>(SearchLineValue(this->MonitoredElems.vecFileContent[i][0], pInnerFunction));
+
+			set<Value *> setBase;
+			for(size_t j = 0; j < vecIndex[0].size(); j ++ )
 			{
-				continue;
+				Value * pTmp = SearchLineValue(this->MonitoredElems.vecFileContent[i][vecIndex[0][j].first], pInnerFunction );
+				setBase.insert(pTmp);
 			}
-			else if(line.find("Func") == 0 )
+
+			this->PossibleSkipLoadInfoMapping[pLoad].push_back(setBase);
+
+			set<Value *> setInit;
+			for(size_t j = 0; j < vecIndex[1].size(); j ++ )
 			{
-				if(line.find(':') == string::npos )
+				Value * pTmp = SearchLineValue(this->MonitoredElems.vecFileContent[i][vecIndex[1][j].first], pInnerFunction );
+				setInit.insert(pTmp);
+			}
+
+			this->PossibleSkipLoadInfoMapping[pLoad].push_back(setInit);
+
+			set<Value *> setIndex;
+
+			for(size_t j = 0; j < vecIndex[2].size(); j ++ )
+			{
+				Value * pTmp = SearchLineValue(this->MonitoredElems.vecFileContent[i][vecIndex[2][j].first], pInnerFunction );
+				setIndex.insert(pTmp);
+			}
+
+
+			this->PossibleSkipLoadInfoMapping[pLoad].push_back(setIndex);
+
+/*
+			for(size_t j = 0; j < this->MonitoredElems.vecFileContent[i].size(); j ++ )
+			{
+				if(this->MonitoredElems.vecFileContent[i][j].find("//---Trip Counter") == 0 )
 				{
-					continue;
+					Value * pTripCounter = SearchLineValue(this->MonitoredElems.vecFileContent[i][j+1], pInnerFunction);
+					this->PossibleSkipLoadTripCounter[pLoad] = pTripCounter;
 				}
-
-				string sIndex = line.substr(0, line.find(':'));
-				string buf; 
-				stringstream ss(sIndex); 
-
-    			vector<string> tokens; 
-
-				while (ss >> buf)
-					tokens.push_back(buf);
-
-				Function * pFunction = pModule->getFunction(tokens[1].c_str());
-				
-				int iParaID = atoi(tokens[3].c_str());
-				pair<Function *, int> pairTmp;
-				pairTmp.first = pFunction;
-				pairTmp.second = iParaID;
-				vecParaIndex.push_back(pairTmp);
-				
 			}
-			else if(line.find("Inst") == 0)
-			{
-				if(line.find(':') == string::npos)
-				{
-					continue;
-				}
-
-				string sIndex = line.substr(5, line.find(':'));
-				int iIndex = atoi(sIndex.c_str());
-				this->setInstIndex.insert(iIndex);
-			}
-			else
-			{
-
-			}
-			
-		}
-
-		iFile.close();
-	}
-	else
-	{
-		errs() << "Failed to open the inst-monitor-file\n";
-	}	
-}
-
 */
+		}
+	}
+}
 
 bool CrossLoopInstrument::runOnModule(Module& M)
 {
@@ -2187,7 +2013,7 @@ bool CrossLoopInstrument::runOnModule(Module& M)
 		ParseLibraryFunctionFile(strLibrary, &M, this->LibraryTypeMapping);
 	}
 
-	if( strOuterFileName != "" )
+	if(strOuterFileName != "")
 	{
 		Function * pOuterFunction = SearchFunctionByName(M, strOuterFileName, strOuterFuncName, uOuterSrcLine);
 		if(pOuterFunction == NULL)
@@ -2212,7 +2038,6 @@ bool CrossLoopInstrument::runOnModule(Module& M)
 		this->bGivenOuterLoop = false;
 	}
 
-	ParseMonitoredInstFile(strMonitorInstFile, &M, this->setInstIndex, this->vecParaIndex);
 
 	SetupTypes(&M);
 	SetupConstants(&M);
@@ -2235,6 +2060,8 @@ bool CrossLoopInstrument::runOnModule(Module& M)
 		return true;
 	}
 
+	ParseInstFile(pInnerFunction, &M);
+
 	PostDominatorTree * PDT = &getAnalysis<PostDominatorTree>(*pInnerFunction);
 	LoopInfo * pInnerLI = &(getAnalysis<LoopInfo>(*pInnerFunction));
 	Loop * pInnerLoop;
@@ -2251,6 +2078,7 @@ bool CrossLoopInstrument::runOnModule(Module& M)
 			errs() << "Cannot find the given loop header!\n";
 			return true;
 		}
+
 		pInnerLoop = pInnerLI->getLoopFor(pHeader);
 	}
 
@@ -2260,24 +2088,27 @@ bool CrossLoopInstrument::runOnModule(Module& M)
 		return true;
 	}
 
-	pInnerLoop->dump();
+	BasicBlock * pInnerHeader = pInnerLoop->getHeader();
 
-	/*
-	for( Function::iterator b = pInnerFunction->begin() , be = pInnerFunction->end() ; b != be ; ++ b )
+	set<BasicBlock *> setHeaders;
+	setHeaders.insert(pInnerHeader);
+
+	for(Loop::iterator BL = pInnerLoop->begin(); BL != pInnerLoop->end(); BL ++ )
 	{
-		errs() << b->getName() << "\n";
-		for(BasicBlock::iterator i = b->begin(), ie = b->end() ; i != ie; ++ i )
-		{     
-			if( MDNode *N = i->getMetadata("dbg") )
-			{
-				DILocation Loc(N);
-				errs() << Loc.getLineNumber()  << "\n";
-				
-			}   
-		}
+		setHeaders.insert((*BL)->getHeader());
 	}
-	exit(0);
-	*/
+
+	set<BasicBlock *>::iterator itSetBegin = setHeaders.begin();
+	set<BasicBlock *>::iterator itSetEnd   = setHeaders.end();
+
+	for(; itSetBegin != itSetEnd; itSetBegin ++ )
+	{
+		Loop * pLoop = pInnerLI->getLoopFor(*itSetBegin);
+		LoopSimplify(pLoop, this);
+	}
+
+	pInnerLoop = pInnerLI->getLoopFor(pInnerHeader);
+
 	InstrumentInnerLoop(pInnerLoop, PDT);
 
 	pInnerFunction->dump();

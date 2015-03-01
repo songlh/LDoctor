@@ -4,9 +4,11 @@
 #include "llvm/Pass.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ScalarEvolution.h"
+#include "llvm/IR/DataLayout.h"
 
 using namespace std;
 using namespace llvm;
+using namespace llvm_Commons;
 
 struct MemRange: public ModulePass
 {
@@ -17,19 +19,24 @@ struct MemRange: public ModulePass
 	virtual void print(raw_ostream &O, const Module *M) const;
 
 private:
-	void ParseMonitoredInstFile(string & sFileName, Module * pModule);
-	void IndentifyMonitoredLoad(Loop * pLoop);
-	void AnalyzeMonitoredLoad();
+
+	//void IndentifyMonitoredLoad(Loop * pLoop);
+	void AnalyzeMonitoredLoad(Loop * pLoop);
+	void DumpInstPaddingInfo();
 
 
 private:
 	LoopInfo * LI;
 	ScalarEvolution * SE;
+	DataLayout * DL;
 
-	set<int> setInstIndex;
-	vector<pair<Function *, int> > vecParaIndex;
+	MonitoredElement MonitorElems;
+	
 
-	set<LoadInst *> setLoadInst;
+	map<int, LoadInst *> IndexLoadMapping;
+	map<LoadInst *, vector<set<Value *> > > LoadArrayAccessMapping;
+	map<LoadInst *, int64_t> LoadStrideMapping;
+	
 
 };
 

@@ -35,6 +35,8 @@ bool beLoopInvariant(Value *V, Loop * pLoop);
 
 bool beLoopInvariant(Instruction *I, Loop * pLoop);
 
+bool beInvariantArray(Loop * pLoop, Value * pValue);
+
 }
 
 

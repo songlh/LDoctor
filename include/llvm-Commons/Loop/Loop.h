@@ -31,6 +31,18 @@ BasicBlock * RewriteLoopExitBlock(Loop *L, BasicBlock *Exit, Pass * P);
 
 void LoopSimplify(Loop * pLoop, Pass * P);
 
+void ProcessPHICondition(PHINode * pPHI, set<Instruction *> & setInputInst);
+
+void CollectExitCondition(Loop * pLoop, set<Instruction *> & setExitCond);
+
+void CollectAllUsesInsideLoop(Value * pValue, Loop * pLoop, set<PHINode *> & UseOne, set<Instruction *> & UseOther);
+
+bool UsedInsideLoop(Value * pValue, Loop * pLoop);
+
+bool OnlyControlInLoop(Value * pValue, Loop * pLoop);
+
+bool OnlyCompWithInteger(Value * pValue, Loop * pLoop);
+
 }
 
 #endif

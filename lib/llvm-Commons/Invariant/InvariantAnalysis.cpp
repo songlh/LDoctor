@@ -9,7 +9,6 @@ namespace llvm_Commons
 
 void IndentifyInvariantGlobalVariable(Function * pF, set<Value *> & setGlobalVariable, set<Function *> & setScope)
 {
-
 	set<Value *> setValueToCheck;
 	for(Function::iterator b = pF->begin(), be = pF->end(); b != be; b++)
 	{
@@ -29,7 +28,6 @@ void IndentifyInvariantGlobalVariable(Function * pF, set<Value *> & setGlobalVar
 			}
 		}
 	}
-
 
 	set<Function *>::iterator itSetBegin = setScope.begin();
 	set<Function *>::iterator itSetEnd = setScope.end();
@@ -74,7 +72,6 @@ DONE:
 		setGlobalVariable.insert(*itSetValueBegin);
 	}
 }
-
 
 void GetGetElemPtrAllUses(Instruction * pGetElement, set<Instruction *> & setUse)
 {
@@ -236,7 +233,6 @@ void IndentifyInvariantArray(Function * pF, set<Value *> & setArray, set<Functio
 
 }
 
-
 void BuildScope(Function * pFunction, set<Function *> & setScope, set<Function *> & setLibraries )
 {
 	vector<Function *> vecWorkList;
@@ -294,7 +290,6 @@ void BuildScope(Function * pFunction, set<Function *> & setScope, set<Function *
 	}
 }
 
-
 bool hasLoopInvariantOperands(Instruction *I, Loop * pLoop)  
 {
 	for (unsigned i = 0, e = I->getNumOperands(); i != e; ++i)
@@ -304,14 +299,12 @@ bool hasLoopInvariantOperands(Instruction *I, Loop * pLoop)
 	return true;
 }
 
-
 bool beLoopInvariant(Value *V, Loop * pLoop) 
 {
 	if (Instruction *I = dyn_cast<Instruction>(V))
 		return beLoopInvariant(I, pLoop);
 	return true;  // All non-instructions are loop-invariant.
 }
-
 
 bool beLoopInvariant(Instruction *I, Loop * pLoop) 
 {
@@ -334,6 +327,12 @@ bool beLoopInvariant(Instruction *I, Loop * pLoop)
 	
 	return true;
 }
+
+bool beInvariantArray(Loop * pLoop, Value * pValue )
+{
+	return true;
+}
+
 
 
 }

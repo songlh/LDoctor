@@ -29,18 +29,15 @@ struct CrossLoopInstrument : public ModulePass
 	void SetupGlobals(Module * );
 	void SetupStruct(Module *);
 
-	//void InitlizeFuncSet();
-
-//
 	BasicBlock * SearchPostDominatorForLoop(Loop * pLoop,  PostDominatorTree * pPDT );
-	void CreateIfElseIfBlock(Loop * pInnerLoop, BasicBlock * pPostDominator, vector<BasicBlock *> & vecCondition);
-	void CloneInnerLoop(Loop * pLoop, BasicBlock * pPostDominator, vector<BasicBlock *> & vecAdd, ValueToValueMapTy & VMap);
+	void CreateIfElseIfBlock(Loop * pInnerLoop, vector<BasicBlock *> & vecCondition);
+	void CloneInnerLoop(Loop * pLoop, vector<BasicBlock *> & vecAdd, ValueToValueMapTy & VMap);
 	
 	void CloneFunctionCalled(set<BasicBlock *> & setBlocksInLoop, ValueToValueMapTy & VCalleeMap, map<Function *, set<Instruction *> > & FuncCallSiteMapping);
 
 
 	void RemapInstruction(Instruction *I, ValueToValueMapTy &VMap);
-	//void ParseMonitoredInstFile(string & sFileName, Module * pModule);
+
 	void CollectInstrumentedInst(set<int> & setIndex, Loop * pLoop, vector<LoadInst *> & vecLoad, vector<Instruction *> & vecIn, vector<Instruction *> & vecOut, vector<MemTransferInst *> & vecMem );
 	void AddHooksToInnerLoop(vector<BasicBlock *> & vecAdd, ValueToValueMapTy & VMap, vector<LoadInst *> & vecLoad, vector<Instruction *> & vecIn, vector<Instruction *> & vecOut, vector<MemTransferInst *> & vecMem);
 
@@ -54,11 +51,19 @@ struct CrossLoopInstrument : public ModulePass
 	void InlineHookLoad(LoadInst * pLoad);
 	void InlineHookMem(MemTransferInst * pMem, Instruction * II);
 
+	void AddHooksToSkippableLoad(set<LoadInst *> & setLoad, LoopInfo * pLI, ValueToValueMapTy &VMap, set<Value *> & setMonitoredValue, BasicBlock * pCondition2);
+
+	void ParseInstFile(Function * pInnerFunction, Module * pModule);
+
 //	
 	map<Function *, LibraryFunctionType>  LibraryTypeMapping;
-	set<int> setInstIndex;
-	vector<pair<Function *, int> > vecParaIndex;
+
 	bool bGivenOuterLoop;
+
+	MonitoredElement MonitoredElems;
+
+	map<LoadInst *, vector<set<Value * > > > PossibleSkipLoadInfoMapping;
+	//map<LoadInst *, Value *> PossibleSkipLoadTripCounter;
 
 //
 	Loop * pOuterLoop;

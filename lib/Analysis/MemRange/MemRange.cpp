@@ -6,15 +6,18 @@
 #include <string.h>
 #include <sstream>
 
-
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/DebugInfo.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ScalarEvolution.h"
+#include "llvm/Analysis/AliasAnalysis.h"
 
 #include "llvm-Commons/Search/Search.h"
+#include "llvm-Commons/SEWrapper/SEWrapper.h"
+#include "llvm-Commons/Array/Array.h"
+#include "llvm-Commons/Config/Config.h"
 #include "Analysis/MemRange/MemRange.h"
 
 using namespace llvm;
@@ -46,12 +49,16 @@ char MemRange::ID = 0;
 MemRange::MemRange(): ModulePass(ID) {
 	PassRegistry &Registry = *PassRegistry::getPassRegistry();
 	initializeDataLayoutPass(Registry);
+	initializeAliasAnalysisAnalysisGroup(Registry);
+
 }
 
 void MemRange::getAnalysisUsage(AnalysisUsage &AU) const {
 	AU.setPreservesCFG();
+	AU.addRequired<AliasAnalysis>();
 	AU.addRequired<LoopInfo>();
 	AU.addRequired<ScalarEvolution>();
+	AU.addRequired<DataLayout>();
 }
 
 void MemRange::print(raw_ostream &O, const Module *M) const
@@ -59,75 +66,132 @@ void MemRange::print(raw_ostream &O, const Module *M) const
 	return;
 }
 
-void MemRange::ParseMonitoredInstFile(string & sFileName, Module * pModule)
+
+void MemRange::DumpInstPaddingInfo()
 {
-	string line;
-	ifstream iFile(sFileName.c_str());
-
-	if(iFile.is_open())
+	for(size_t i = 0 ; i < this->MonitorElems.vecFileContent.size(); i ++ )
 	{
-		while (getline(iFile,line))
+		vector<string>::iterator itVecBegin = this->MonitorElems.vecFileContent[i].begin();
+		vector<string>::iterator itVecEnd   = this->MonitorElems.vecFileContent[i].end();
+
+		for(; itVecBegin != itVecEnd; itVecBegin ++ )
 		{
-			if(line.find("//--") == 0)
-			{
-				continue;
-			}
-			else if(line.find("Func") == 0 )
-			{
-				if(line.find(':') == string::npos )
-				{
-					continue;
-				}
-
-				string sIndex = line.substr(0, line.find(':'));
-				string buf; 
-				stringstream ss(sIndex); 
-
-    			vector<string> tokens; 
-
-				while (ss >> buf)
-					tokens.push_back(buf);
-
-				Function * pFunction = pModule->getFunction(tokens[1].c_str());
-				
-				int iParaID = atoi(tokens[3].c_str());
-				pair<Function *, int> pairTmp;
-				pairTmp.first = pFunction;
-				pairTmp.second = iParaID;
-				vecParaIndex.push_back(pairTmp);
-				
-			}
-			else if(line.find("Inst") == 0)
-			{
-				if(line.find(':') == string::npos)
-				{
-					continue;
-				}
-
-				string sIndex = line.substr(5, line.find(':'));
-				int iIndex = atoi(sIndex.c_str());
-				this->setInstIndex.insert(iIndex);
-			}
-			else
-			{
-
-			}
-			
+			errs() << (*itVecBegin) << "\n";
 		}
 
-		iFile.close();
-	}
-	else
-	{
-		errs() << "Failed to open the inst-monitor-file\n";
+		if(this->MonitorElems.ContentIDInstIDMapping.find(i) == this->MonitorElems.ContentIDInstIDMapping.end())
+		{
+			continue;
+		}
+
+		int iInstID = this->MonitorElems.ContentIDInstIDMapping[i];
+
+		if(IndexLoadMapping.find(iInstID) != IndexLoadMapping.end())
+		{
+			LoadInst * pLoad = IndexLoadMapping[iInstID];
+
+			if(this->LoadArrayAccessMapping.find(pLoad) != this->LoadArrayAccessMapping.end())
+			{
+				Loop * pCurrentLoop = this->LI->getLoopFor(pLoad->getParent());
+				const SCEV * pTripCounter = CalculateLoopTripCounter(pCurrentLoop, this->SE);
+				errs() << "//---Array Access: \n";
+
+				if(pTripCounter != NULL)
+				{
+					errs() << "//---Trip Counter: ";
+					pTripCounter->dump();
+
+					set<Value *> setValue;
+					SearchContainedValue(pTripCounter, setValue);
+
+					set<Value *>::iterator itValBegin = setValue.begin();
+					set<Value *>::iterator itValEnd   = setValue.end();
+
+					for(; itValBegin != itValEnd; itValBegin ++ )
+					{
+						if(Instruction * pI = dyn_cast<Instruction>(*itValBegin))
+						{
+							errs() << "//---";
+							PrintInstructionInfo(pI);
+						}
+						else if(Argument * pArg = dyn_cast<Argument>(*itValBegin))
+						{
+							errs() << "//---";
+							PrintArgumentInfo(pArg);
+						}
+					}
+				}
+
+				if(this->LoadStrideMapping.find(pLoad) != this->LoadStrideMapping.end() )
+				{
+					errs() << "//---Stride: " << this->LoadStrideMapping[pLoad] << "\n";
+				}
+	
+				set<Value *>::iterator itValBegin = LoadArrayAccessMapping[pLoad][0].begin();
+				set<Value *>::iterator itValEnd   = LoadArrayAccessMapping[pLoad][0].end();
+
+				errs() << "//---Base: " << LoadArrayAccessMapping[pLoad][0].size() << "\n";
+				for(; itValBegin != itValEnd; itValBegin ++ )
+				{
+					if(Instruction * pI = dyn_cast<Instruction>(*itValBegin))
+					{
+						errs() << "//---";
+						PrintInstructionInfo(pI);
+					}
+					else if(Argument * pArg = dyn_cast<Argument>(*itValBegin))
+					{
+						errs() << "//---";
+						PrintArgumentInfo(pArg);
+					}
+				}
+
+				itValBegin = LoadArrayAccessMapping[pLoad][1].begin();
+				itValEnd   = LoadArrayAccessMapping[pLoad][1].end();
+
+				errs() << "//---Init: " << LoadArrayAccessMapping[pLoad][1].size() << "\n";
+				for(; itValBegin != itValEnd; itValBegin ++ )
+				{
+					if(Instruction * pI = dyn_cast<Instruction>(*itValBegin))
+					{
+						errs() << "//---";
+						PrintInstructionInfo(pI);
+					}
+					else if(Argument * pArg = dyn_cast<Argument>(*itValBegin))
+					{
+						errs() << "//---";
+						PrintArgumentInfo(pArg);
+					}
+				}
+
+				itValBegin = LoadArrayAccessMapping[pLoad][2].begin();
+				itValEnd   = LoadArrayAccessMapping[pLoad][2].end();
+
+				errs() << "//---Index: " << LoadArrayAccessMapping[pLoad][2].size() << "\n";
+				for(; itValBegin != itValEnd; itValBegin ++ )
+				{
+					if(Instruction * pI = dyn_cast<Instruction>(*itValBegin))
+					{
+						errs() << "//---";
+						PrintInstructionInfo(pI);
+					}
+					else if(Argument * pArg = dyn_cast<Argument>(*itValBegin))
+					{
+						errs() << "//---";
+						PrintArgumentInfo(pArg);
+					}
+				}
+			}
+		}
 	}
 }
 
 
-void MemRange::IndentifyMonitoredLoad(Loop * pLoop)
-{
-	for(Loop::block_iterator BB = pLoop->block_begin() ; BB != pLoop->block_end(); BB ++)
-	{
+void MemRange::AnalyzeMonitoredLoad(Loop * pLoop)
+{	
+	set<LoadInst *> setLoadInst;
+
+	for(Loop::block_iterator BB = pLoop->block_begin(); BB != pLoop->block_end(); BB++ )
+	{	
 		for(BasicBlock::iterator II = (*BB)->begin(); II != (*BB)->end(); II ++ )
 		{
 			MDNode *Node = II->getMetadata("ins_id");
@@ -140,29 +204,37 @@ void MemRange::IndentifyMonitoredLoad(Loop * pLoop)
 			ConstantInt *CI = dyn_cast<ConstantInt>(Node->getOperand(0));
 			assert(CI);
 
-			if(this->setInstIndex.find(CI->getZExtValue()) != this->setInstIndex.end())
+			if(this->MonitorElems.MonitoredInst.find(CI->getZExtValue()) != this->MonitorElems.MonitoredInst.end())
 			{
-				this->setLoadInst.insert(cast<LoadInst>(II));
+				this->IndexLoadMapping[CI->getZExtValue()] = cast<LoadInst>(II);
+				setLoadInst.insert(cast<LoadInst>(II));
 			}
 		}
 	}
-}
 
-void MemRange::AnalyzeMonitoredLoad()
-{
-	set<LoadInst *>::iterator itLoadBegin = this->setLoadInst.begin();
-	set<LoadInst *>::iterator itLoadEnd   = this->setLoadInst.end();
-
+	set<LoadInst *>::iterator itLoadBegin = setLoadInst.begin();
+	set<LoadInst *>::iterator itLoadEnd   = setLoadInst.end();
+	
 	for(; itLoadBegin != itLoadEnd; itLoadBegin ++)
 	{
-		Value * pointer = (*itLoadBegin)->getPointerOperand();
-		const SCEV *S = SE->getSCEV(pointer);
-		
-		S->dump();
+		Loop * pCurrentLoop = this->LI->getLoopFor((*itLoadBegin)->getParent());
+
+		if(BeArrayAccess(pCurrentLoop, *itLoadBegin, this->SE, this->DL))
+		{
+			vector<set<Value *> >  vecResult;
+			AnalyzeArrayAccess(*itLoadBegin, pCurrentLoop, this->SE, this->DL, vecResult);
+			int64_t stride = CalculateStride((*itLoadBegin)->getPointerOperand(), pCurrentLoop, this->SE, this->DL);
+
+			if(stride != 0)
+			{
+				this->LoadStrideMapping[*itLoadBegin] = stride;
+			}
+
+			this->LoadArrayAccessMapping[*itLoadBegin] = vecResult;
+
+		}
 	}
 }
-
-
 
 
 bool MemRange::runOnModule(Module &M) 
@@ -177,6 +249,7 @@ bool MemRange::runOnModule(Module &M)
 
 	this->LI = &(getAnalysis<LoopInfo>(*pInnerFunction));
 	this->SE = &(getAnalysis<ScalarEvolution>(*pInnerFunction));
+	this->DL = &(getAnalysis<DataLayout>());
 
 	Loop * pInnerLoop = SearchLoopByLineNo(pInnerFunction, this->LI, uSrcLine);
 
@@ -186,11 +259,12 @@ bool MemRange::runOnModule(Module &M)
 		return false;
 	} 
 
-	ParseMonitoredInstFile(strMonitorInstFile, &M);
-	IndentifyMonitoredLoad(pInnerLoop);
+	ParseFeaturedInstFile(strMonitorInstFile, &M, this->MonitorElems);
 
-	this->SE->getBackedgeTakenCount(pInnerLoop)->dump();
-	AnalyzeMonitoredLoad();
+	AnalyzeMonitoredLoad(pInnerLoop);
+
+	DumpInstPaddingInfo();
+
 	return false;
 }
 

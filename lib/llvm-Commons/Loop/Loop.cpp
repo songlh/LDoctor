@@ -9,6 +9,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/DebugInfo.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/Constants.h"
 
 #include "llvm-Commons/Loop/Loop.h"
 
@@ -257,8 +258,327 @@ void LoopSimplify(Loop * pLoop, Pass * P)
 			ProcessInstruction(I, ExitBlocks, &DT, pLoop, PredCache);
 		}
 	}
+}
+
+void ProcessPHICondition(PHINode * pPHI, set<Instruction *> & setInputInst)
+{
+	set<Instruction *> setProcessed;
+	setProcessed.insert(pPHI);
+
+	vector<PHINode *> vecWorkList;
+	vecWorkList.push_back(pPHI);
+
+	while(vecWorkList.size()>0)
+	{
+		PHINode * pCurrent = vecWorkList.back();
+		vecWorkList.pop_back();
+
+		for(unsigned i = 0; i < pCurrent->getNumIncomingValues(); i ++)
+		{
+			if(Instruction * pInst = dyn_cast<Instruction>(pCurrent->getIncomingValue(i)))
+			{
+				if(PHINode * pNew = dyn_cast<PHINode>(pInst))
+				{
+					if(setProcessed.find(pNew) == setProcessed.end())
+					{
+						setProcessed.insert(pNew);
+						vecWorkList.push_back(pNew);
+					}
+				}
+				else
+				{
+					setInputInst.insert(pInst);
+				}
+			}
+			else if(isa<ConstantInt>(pCurrent->getIncomingValue(i)))
+			{
+				TerminatorInst * pTerminator = pCurrent->getIncomingBlock(i)->getTerminator();
+
+				if(BranchInst * pBranch = dyn_cast<BranchInst>(pTerminator))
+				{
+					if(Instruction * pInst = dyn_cast<Instruction>(pBranch->getCondition()))
+					{
+						if(PHINode * pNew = dyn_cast<PHINode>(pInst))
+						{
+							if(setProcessed.find(pNew) == setProcessed.end() )
+							{
+								setProcessed.insert(pNew);
+								vecWorkList.push_back(pNew);
+							}
+						}
+						else
+						{
+							setInputInst.insert(pInst);
+						}
+					}
+				}
+				else if(SwitchInst * pSwitch = dyn_cast<SwitchInst>(pTerminator))
+				{
+					if(Instruction * pInst = dyn_cast<Instruction>(pSwitch->getCondition()))
+					{
+						if(PHINode * pNew = dyn_cast<PHINode>(pInst))
+						{
+							if(setProcessed.find(pNew) == setProcessed.end() )
+							{
+								setProcessed.insert(pNew);
+								vecWorkList.push_back(pNew);
+							}
+						}
+						else
+						{
+							setInputInst.insert(pInst);
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+void CollectExitCondition(Loop * pLoop, set<Instruction *> & setExitCond )
+{
+	for(Loop::block_iterator pBB = pLoop->block_begin(); pBB != pLoop->block_end(); pBB ++ )
+	{
+		BasicBlock * BB = * pBB;
+		TerminatorInst * pTerminator = BB->getTerminator();
+
+		if(BranchInst * pBranch = dyn_cast<BranchInst>(pTerminator))
+		{
+			bool bFlag = false;
+
+			for(unsigned i = 0; i < pBranch->getNumSuccessors(); i ++ )
+			{
+				if(!pLoop->contains(pBranch->getSuccessor(i)))
+				{
+					bFlag = true;
+					break;
+				}
+			}
+
+			if(bFlag)
+			{
+				if(Instruction * pInst = dyn_cast<Instruction>(pBranch->getCondition()))
+				{
+					if(PHINode * pPHI = dyn_cast<PHINode>(pInst))
+					{
+						set<Instruction *> setInputInst ;
+						ProcessPHICondition(pPHI, setInputInst);
+						setExitCond.insert(setInputInst.begin(), setInputInst.end());
+					}
+					else
+					{
+						setExitCond.insert(pInst);
+					}
+				}
+			}
+		}
+		else if(SwitchInst * pSwitch = dyn_cast<SwitchInst>(pTerminator))
+		{
+			bool bFlag = false;
+
+			for(unsigned i = 0; i < pSwitch->getNumSuccessors(); i ++ )
+			{
+				if(!pLoop->contains(pSwitch->getSuccessor(i)))
+				{
+					bFlag = true;
+					break;
+				}
+			}
+
+			if(bFlag)
+			{
+				if(Instruction * pInst = dyn_cast<Instruction>(pSwitch->getCondition()))
+				{
+					if(PHINode * pPHI = dyn_cast<PHINode>(pInst))
+					{
+						set<Instruction *> setInputInst;
+						ProcessPHICondition(pPHI, setInputInst);
+						setExitCond.insert(setInputInst.begin(), setInputInst.end());
+					}
+					else
+					{
+						setExitCond.insert(pInst);
+					}
+				}
+			}
+		}
+	}
+}
+
+void CollectAllUsesInsideLoop(Value * pValue, Loop * pLoop, set<PHINode *> & UseOne, set<Instruction *> & UseOther)
+{
+	for(Value::use_iterator UI = pValue->use_begin(); UI != pValue->use_end(); UI ++ )
+	{
+		User * U = * UI;
+		Instruction * pInst = cast<Instruction>(U);
+
+		if(pLoop->contains(pInst->getParent()))
+		{
+			if(PHINode * pPHI = dyn_cast<PHINode>(pInst))
+			{
+				for(unsigned i = 0; i < pPHI->getNumIncomingValues(); i ++ )
+				{
+					if(pPHI->getIncomingValue(i) == pValue && !pLoop->contains(pPHI->getIncomingBlock(i)))
+					{
+						UseOne.insert(pPHI);
+					}
+					else if(pPHI->getIncomingValue(i) == pValue && pLoop->contains(pPHI->getIncomingBlock(i)))
+					{
+						UseOther.insert(pPHI);
+					}
+				}
+			}
+			else
+			{
+				UseOther.insert(pInst);
+			}
+		}
+	}
+}
+
+bool UsedInsideLoop(Value * pValue, Loop * pLoop)
+{
+	for(Value::use_iterator UI = pValue->use_begin(); UI != pValue->use_end(); UI ++ )
+	{
+		User * U = *UI;
+		Instruction * pInst = cast<Instruction>(U);
+
+		if(pLoop->contains(pInst->getParent()))
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+bool OnlyControlInLoop(Value * pValue, Loop * pLoop)
+{
+	bool bFlag = false;
+
+	for(Value::use_iterator UI = pValue->use_begin(); UI != pValue->use_end(); UI ++ )
+	{
+		User * U = *UI;
+
+		Instruction * pInst = cast<Instruction>(U);
+
+		if(!pLoop->contains(pInst->getParent()))
+		{
+			continue;
+		}
+
+		bFlag = true;
+
+		if(!isa<CmpInst>(pInst))
+		{
+			return false;
+		}
+
+		for(Value::use_iterator CmpUI = pInst->use_begin(); CmpUI != pInst->use_end(); CmpUI ++)
+		{
+			User * CmpU = *CmpUI;
+			Instruction * pCmpUInst = cast<Instruction>(CmpU);
+
+			if(!pLoop->contains(pCmpUInst->getParent()))
+			{
+				continue;
+			}
+
+			if(!isa<BranchInst>(pCmpUInst))
+			{
+				return false;
+			}
+		}
+	}
+
+	return bFlag;
+}
+
+
+bool OnlyCompWithInteger(Value * pValue, Loop * pLoop)
+{
+	if(!isa<IntegerType>(pValue->getType()))
+	{
+		return false;
+	}
+
+	set<Instruction *> setProcessed;
+	vector<Instruction *> vecWorkList;
+
+	for(Value::use_iterator UI = pValue->use_begin(); UI != pValue->use_end(); UI ++ )
+	{
+		User * U = *UI;
+		Instruction * pInst = cast<Instruction>(U);
+
+		if(!pLoop->contains(pInst->getParent()))
+		{
+			continue;
+		}
+
+		for(unsigned i = 0; i < pInst->getNumOperands(); i ++ )
+		{
+			if(pInst->getOperand(i) == pValue)
+			{
+				continue;
+			}
+
+			if(Instruction * pI = dyn_cast<Instruction>(pInst->getOperand(i)))
+			{
+				if(!pLoop->contains(pI->getParent()))
+				{
+					continue;
+				}
+
+				if(setProcessed.find(pI) == setProcessed.end())
+				{
+					setProcessed.insert(pI);
+					vecWorkList.push_back(pI);
+				}
+			}
+		}
+	}
+
+	while(vecWorkList.size() >0)
+	{
+		Instruction * pCurrent = vecWorkList.back();
+		vecWorkList.pop_back();
+
+		if(isa<CastInst>(pCurrent) || isa<BinaryOperator>(pCurrent) || isa<PHINode>(pCurrent) || isa<CmpInst>(pCurrent) )
+		{
+			for(unsigned i = 0; i < pCurrent->getNumOperands(); i ++ )
+			{
+				if(pCurrent->getOperand(i) == pValue)
+				{
+					continue;
+				}
+
+				if(Instruction * pI = dyn_cast<Instruction>(pCurrent->getOperand(i)))
+				{
+					if(!pLoop->contains(pI->getParent()))
+					{
+						continue;
+					}
+
+					if(setProcessed.find(pI) == setProcessed.end())
+					{
+						setProcessed.insert(pI);
+						vecWorkList.push_back(pI);
+					}
+				}
+			}
+		}
+		else
+		{
+			return false;
+		}
+	}
+
+
+	return true;
 
 }
+
+
 
 }
 

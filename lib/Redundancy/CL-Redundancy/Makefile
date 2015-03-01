@@ -16,7 +16,7 @@ LOADABLE_MODULE := 1
 #endif
 #endif
 
-USEDLIBS = Search.a SFReach.a CFGUtility.a Invariant.a Dependence.a ID.a LiveAnalysis.a Utility.a Config.a
+USEDLIBS = Search.a SFReach.a CFGUtility.a Invariant.a Dependence.a ID.a LiveAnalysis.a Utility.a Config.a LinkList.a Array.a Loop.a SEWrapper.a
 
 #
 # Include Makefile.common so we know what to do.
