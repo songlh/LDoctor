@@ -38,15 +38,33 @@ bool blockDominatesAnExit(BasicBlock * BB, DominatorTree & DT, set<BasicBlock *>
 }
 
 
-bool isExitBlock(BasicBlock *BB, const SmallVectorImpl<BasicBlock*> &ExitBlocks) 
+bool isExitBlock(BasicBlock *BB, set<BasicBlock*> &ExitBlocks) 
 {
-	for (unsigned i = 0, e = ExitBlocks.size(); i != e; ++i)
-		if (ExitBlocks[i] == BB)
-			return true;
+
+	if(ExitBlocks.find(BB) != ExitBlocks.end())
+	{
+		return true;
+	}
+
 	return false;
 }
 
-bool ProcessInstruction(Instruction *Inst, const SmallVectorImpl<BasicBlock*> &ExitBlocks, DominatorTree * DT, Loop * L, PredIteratorCache & PredCache) 
+
+void CollectExitBlock(Loop * pLoop, set<BasicBlock *> & setExitBlocks)
+{
+	SmallVector<BasicBlock*, 4> vecExitBlocks;
+	pLoop->getExitBlocks(vecExitBlocks);
+
+	SmallVector<BasicBlock*, 4>::iterator itVecBegin = vecExitBlocks.begin();
+	SmallVector<BasicBlock*, 4>::iterator itVecEnd   = vecExitBlocks.end();
+
+	for(; itVecBegin != itVecEnd; itVecBegin ++)
+	{
+		setExitBlocks.insert(*itVecBegin);
+	}
+}
+
+bool ProcessInstruction(Instruction *Inst, set<BasicBlock*> & ExitBlocks, DominatorTree * DT, Loop * L, PredIteratorCache & PredCache) 
 {
 	SmallVector<Use*, 16> UsesToRewrite;
   
@@ -83,7 +101,7 @@ bool ProcessInstruction(Instruction *Inst, const SmallVectorImpl<BasicBlock*> &E
   
 	// Insert the LCSSA phi's into all of the exit blocks dominated by the
 	// value, and add them to the Phi's map.
-	for (SmallVectorImpl<BasicBlock*>::const_iterator BBI = ExitBlocks.begin(), BBE = ExitBlocks.end(); BBI != BBE; ++BBI) 
+	for (set<BasicBlock*>::const_iterator BBI = ExitBlocks.begin(), BBE = ExitBlocks.end(); BBI != BBE; ++BBI) 
 	{
 		BasicBlock *ExitBB = *BBI;
 		if (!DT->dominates(DomNode, DT->getNode(ExitBB))) continue;
@@ -166,7 +184,8 @@ BasicBlock * RewriteLoopExitBlock(Loop *L, BasicBlock *Exit, Pass * P)
 
 	if (Exit->isLandingPad()) 
 	{
-		assert(0);
+		//assert(0);
+		return NULL;
 	} 
 	else 
 	{
@@ -220,6 +239,9 @@ void LoopSimplify(Loop * pLoop, Pass * P)
 	pLoop->getExitBlocks(ExitBlocks);
 
 	set<BasicBlock *> ExitBlockSet(ExitBlocks.begin(), ExitBlocks.end());
+	set<BasicBlock *> NewBasicBlock;
+	set<BasicBlock *> OldBasicBlock;
+
 
 	for (set<BasicBlock *>::iterator I = ExitBlockSet.begin(), E = ExitBlockSet.end(); I != E; ++I) 
 	{
@@ -228,11 +250,28 @@ void LoopSimplify(Loop * pLoop, Pass * P)
 		{
 			if (!pLoop->contains(*PI)) 
 			{
-				RewriteLoopExitBlock(pLoop, ExitBlock, P);
+				BasicBlock * NewExit = RewriteLoopExitBlock(pLoop, ExitBlock, P);
+
+				if(NewExit != NULL)
+				{
+					NewBasicBlock.insert(NewExit);
+					OldBasicBlock.insert(ExitBlock);
+				}
+				
 				break;
 			}
 		}
 	}
+
+	set<BasicBlock *>::iterator itSetBlockBegin = OldBasicBlock.begin();
+	set<BasicBlock *>::iterator itSetBlockEnd   = OldBasicBlock.end();
+
+	for(; itSetBlockBegin != itSetBlockEnd; itSetBlockBegin ++ )
+	{
+		ExitBlockSet.erase(*itSetBlockBegin);
+	}
+
+	ExitBlockSet.insert(NewBasicBlock.begin(), NewBasicBlock.end());
 
 
 	DominatorTree DT;
@@ -255,7 +294,7 @@ void LoopSimplify(Loop * pLoop, Pass * P)
 			if (I->use_empty() || (I->hasOneUse() && I->use_back()->getParent() == BB && !isa<PHINode>(I->use_back())))
 				continue;
 			
-			ProcessInstruction(I, ExitBlocks, &DT, pLoop, PredCache);
+			ProcessInstruction(I, ExitBlockSet, &DT, pLoop, PredCache);
 		}
 	}
 }
@@ -296,19 +335,22 @@ void ProcessPHICondition(PHINode * pPHI, set<Instruction *> & setInputInst)
 
 				if(BranchInst * pBranch = dyn_cast<BranchInst>(pTerminator))
 				{
-					if(Instruction * pInst = dyn_cast<Instruction>(pBranch->getCondition()))
+					if(pBranch->isConditional())
 					{
-						if(PHINode * pNew = dyn_cast<PHINode>(pInst))
+						if(Instruction * pInst = dyn_cast<Instruction>(pBranch->getCondition()))
 						{
-							if(setProcessed.find(pNew) == setProcessed.end() )
+							if(PHINode * pNew = dyn_cast<PHINode>(pInst))
 							{
-								setProcessed.insert(pNew);
-								vecWorkList.push_back(pNew);
+								if(setProcessed.find(pNew) == setProcessed.end() )
+								{
+									setProcessed.insert(pNew);
+									vecWorkList.push_back(pNew);
+								}
 							}
-						}
-						else
-						{
-							setInputInst.insert(pInst);
+							else
+							{
+								setInputInst.insert(pInst);
+							}
 						}
 					}
 				}
@@ -357,17 +399,21 @@ void CollectExitCondition(Loop * pLoop, set<Instruction *> & setExitCond )
 
 			if(bFlag)
 			{
-				if(Instruction * pInst = dyn_cast<Instruction>(pBranch->getCondition()))
+				if(pBranch->isConditional())
 				{
-					if(PHINode * pPHI = dyn_cast<PHINode>(pInst))
+
+					if(Instruction * pInst = dyn_cast<Instruction>(pBranch->getCondition()))
 					{
-						set<Instruction *> setInputInst ;
-						ProcessPHICondition(pPHI, setInputInst);
-						setExitCond.insert(setInputInst.begin(), setInputInst.end());
-					}
-					else
-					{
-						setExitCond.insert(pInst);
+						if(PHINode * pPHI = dyn_cast<PHINode>(pInst))
+						{
+							set<Instruction *> setInputInst ;
+							ProcessPHICondition(pPHI, setInputInst);
+							setExitCond.insert(setInputInst.begin(), setInputInst.end());
+						}
+						else
+						{
+							setExitCond.insert(pInst);
+						}
 					}
 				}
 			}

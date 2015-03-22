@@ -42,14 +42,14 @@ struct CrossLoopRedundancy : public ModulePass
 	void InitializeMemoryAllocFunctionSet();
 	void InitializeFileIOFunctionSet();
 	void InitializeLibraryFunctionSet();
-	void CollectSideEffectInstructionInsideLoop(Loop * pLoop, set<Instruction *> & setSideEffectInst);
+	void CollectSideEffectInstructionInsideLoop(Loop * pLoop, set<Instruction *> & setSideEffectInst, set<BasicBlock *> & setType2Blocks, ControlDependenceGraphBase & CDG);
 
 	void DumpInterProcDepResult();
 
 	void CalDependenceForSEInst(Loop * pLoop, set<Instruction *> & SEInst, set<Value *> & setDependentValue, ControlDependenceGraphBase & CDG);
 	void LoopDependenceAnalysis(Loop * pLoop, set<Value *> & setValueInput, set<Value *> & setDependentValue, ControlDependenceGraphBase & CDG);
 	
-	void LoopDependenceAnalysis(Loop * pLoop, set<Value *> & setDependentValue, PostDominatorTree * PDT);
+	void LoopDependenceAnalysis(Loop * pLoop, set<Value *> & setDependentValue, PostDominatorTree * PDT, set<BasicBlock* > & setType2Blocks);
 	void CollectSideEffectInstruction(Loop * pLoop, set<Instruction *> & setSideEffectInst);
 
 	bool ControlDependingOnItself(PHINode * pPHI, Loop * pLoop, ControlDependenceGraphBase & CDG);

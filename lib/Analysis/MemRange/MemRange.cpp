@@ -49,6 +49,7 @@ char MemRange::ID = 0;
 MemRange::MemRange(): ModulePass(ID) {
 	PassRegistry &Registry = *PassRegistry::getPassRegistry();
 	initializeDataLayoutPass(Registry);
+	initializeDominatorTreePass(Registry);
 	initializeAliasAnalysisAnalysisGroup(Registry);
 
 }
@@ -56,9 +57,11 @@ MemRange::MemRange(): ModulePass(ID) {
 void MemRange::getAnalysisUsage(AnalysisUsage &AU) const {
 	AU.setPreservesCFG();
 	AU.addRequired<AliasAnalysis>();
+	AU.addRequired<DominatorTree>();
 	AU.addRequired<LoopInfo>();
 	AU.addRequired<ScalarEvolution>();
 	AU.addRequired<DataLayout>();
+
 }
 
 void MemRange::print(raw_ostream &O, const Module *M) const
@@ -217,7 +220,39 @@ void MemRange::AnalyzeMonitoredLoad(Loop * pLoop)
 	
 	for(; itLoadBegin != itLoadEnd; itLoadBegin ++)
 	{
+		//(*itLoadBegin)->dump();
 		Loop * pCurrentLoop = this->LI->getLoopFor((*itLoadBegin)->getParent());
+
+		BasicBlock * Header = pCurrentLoop->getHeader();
+		BasicBlock * pContain = (*itLoadBegin)->getParent();
+		set<BasicBlock *> setBackEdgeBlock;
+
+		for(pred_iterator PI = pred_begin(Header), PE = pred_end(Header); PI != PE; ++PI)
+		{
+			if(pCurrentLoop->contains(*PI))
+			{
+				setBackEdgeBlock.insert(*PI);
+			}
+		}
+
+		set<BasicBlock *>::iterator itSetBegin = setBackEdgeBlock.begin();
+		set<BasicBlock *>::iterator itSetEnd   = setBackEdgeBlock.end();
+
+		bool bFlag = false;
+
+		for(; itSetBegin != itSetEnd; itSetBegin ++ )
+		{
+			if(!this->DT->dominates(pContain, *itSetBegin))
+			{
+				bFlag = true;
+				break;
+			}
+		}
+
+		if(bFlag)
+		{
+			continue;
+		}
 
 		if(BeArrayAccess(pCurrentLoop, *itLoadBegin, this->SE, this->DL))
 		{
@@ -247,6 +282,7 @@ bool MemRange::runOnModule(Module &M)
 		return false;
 	}
 
+	this->DT = &(getAnalysis<DominatorTree>(*pInnerFunction));
 	this->LI = &(getAnalysis<LoopInfo>(*pInnerFunction));
 	this->SE = &(getAnalysis<ScalarEvolution>(*pInnerFunction));
 	this->DL = &(getAnalysis<DataLayout>());
@@ -262,6 +298,7 @@ bool MemRange::runOnModule(Module &M)
 	ParseFeaturedInstFile(strMonitorInstFile, &M, this->MonitorElems);
 
 	AnalyzeMonitoredLoad(pInnerLoop);
+
 
 	DumpInstPaddingInfo();
 

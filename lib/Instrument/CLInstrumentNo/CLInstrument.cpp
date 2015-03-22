@@ -9,7 +9,7 @@
 #include "llvm-Commons/Search/Search.h"
 #include "llvm-Commons/Utility/Utility.h"
 #include "llvm-Commons/Loop/Loop.h"
-#include "Instrument/CLInstrument/CLInstrument.h"
+#include "Instrument/CLInstrumentNo/CLInstrument.h"
 
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/PostDominators.h"
@@ -1385,6 +1385,7 @@ void CrossLoopInstrument::InstrumentMain(Module * pModule)
 			pStore = new StoreInst(this->ConstantLong32, this->iRecordSize_CPI, false, II);
 			pStore->setAlignment(8);
 
+			/*
 			pCall = CallInst::Create(this->getenv, this->SAMPLE_RATE_ptr, "", II);
 			pCall->setCallingConv(CallingConv::C);
 			pCall->setTailCall(false);
@@ -1442,6 +1443,7 @@ void CrossLoopInstrument::InstrumentMain(Module * pModule)
   			pCall->setCallingConv(CallingConv::C);
   			pCall->setTailCall(false);
   			pCall->setAttributes(emptySet);
+  			*/
 			break;
 		}
 	}
@@ -1974,9 +1976,9 @@ void CrossLoopInstrument::RemapInstruction(Instruction *I, ValueToValueMapTy &VM
 }
 
 
-void CrossLoopInstrument::CloneInnerLoop(Loop * pLoop, vector<BasicBlock *> & vecAdd, ValueToValueMapTy & VMap)
+void CrossLoopInstrument::CloneInnerLoop(Loop * pLoop, ValueToValueMapTy & VMap)
 {
-	Function * pFunction = pLoop->getHeader()->getParent();
+	//Function * pFunction = pLoop->getHeader()->getParent();
 
 	SmallVector<BasicBlock *, 4> ExitBlocks;
 	pLoop->getExitBlocks(ExitBlocks);
@@ -1994,8 +1996,6 @@ void CrossLoopInstrument::CloneInnerLoop(Loop * pLoop, vector<BasicBlock *> & ve
 	}
 
 	vector<BasicBlock *> ToClone;
-	vector<BasicBlock *> BeenCloned;
-
 	set<BasicBlock *> setCloned;
 	
 	//clone loop
@@ -2012,29 +2012,12 @@ void CrossLoopInstrument::CloneInnerLoop(Loop * pLoop, vector<BasicBlock *> & ve
 			continue;
 		}
 
-		BasicBlock * NewBB;
-		BBEntry = NewBB = BasicBlock::Create(pCurrent->getContext(), "", pFunction);
+		BBEntry = pCurrent;
 
-		if(pCurrent->hasName())
+		for(BasicBlock::iterator II = pCurrent->begin(); II != pCurrent->end(); ++II )
 		{
-			NewBB->setName(pCurrent->getName() + ".CPI");
-		}
-
-		if(pCurrent->hasAddressTaken())
-		{
-			errs() << "hasAddressTaken branch\n" ;
-			exit(0);
-		}
-
-		for(BasicBlock::const_iterator II = pCurrent->begin(); II != pCurrent->end(); ++II )
-		{
-			Instruction * NewInst = II->clone();
-			if(II->hasName())
-			{
-				NewInst->setName(II->getName() + ".CPI");
-			}
-			VMap[II] = NewInst;
-			NewBB->getInstList().push_back(NewInst);
+			
+			VMap[II] = II;
 		}
 
 		const TerminatorInst *TI = pCurrent->getTerminator();
@@ -2044,85 +2027,9 @@ void CrossLoopInstrument::CloneInnerLoop(Loop * pLoop, vector<BasicBlock *> & ve
 		}
 
 		setCloned.insert(pCurrent);
-		BeenCloned.push_back(NewBB);
 	}
 
-	//remap value used inside loop
-	vector<BasicBlock *>::iterator itVecBegin = BeenCloned.begin();
-	vector<BasicBlock *>::iterator itVecEnd = BeenCloned.end();
-
-
-	for(; itVecBegin != itVecEnd; itVecBegin ++)
-	{
-		for(BasicBlock::iterator II = (*itVecBegin)->begin(); II != (*itVecBegin)->end(); II ++ )
-		{
-			RemapInstruction(II, VMap);
-		}
-	}
-
-	//add to the else if body
-	BasicBlock * pCondition1 = vecAdd[0];
-	BasicBlock * pElseBody   = vecAdd[3];
-
-	BasicBlock * pClonedHeader = cast<BasicBlock>(VMap[pLoop->getHeader()]);
-
-	BranchInst::Create(pClonedHeader, pElseBody);
-
-	for(BasicBlock::iterator II = pClonedHeader->begin(); II != pClonedHeader->end(); II ++ )
-	{
-		if(PHINode * pPHI = dyn_cast<PHINode>(II))
-		{
-			vector<int> vecToRemoved;
-			for (unsigned i = 0, e = pPHI->getNumIncomingValues(); i != e; ++i) 
-			{
-				if(pPHI->getIncomingBlock(i) == pCondition1)
-				{
-					pPHI->setIncomingBlock(i, pElseBody);
-				}
-
-			}
-
-		}
-	}
-
-	set<BasicBlock *> setProcessedBlock;
-
-	for(unsigned long i = 0; i < ExitBlocks.size(); i++ )
-	{
-		if(setProcessedBlock.find(ExitBlocks[i]) != setProcessedBlock.end() )
-		{
-			continue;
-		}
-		else
-		{
-			setProcessedBlock.insert(ExitBlocks[i]);
-		}
-
-		for(BasicBlock::iterator II = ExitBlocks[i]->begin(); II != ExitBlocks[i]->end(); II ++ )
-		{
-			if(PHINode * pPHI = dyn_cast<PHINode>(II))
-			{
-				unsigned numIncomming = pPHI->getNumIncomingValues();
-				for(unsigned i = 0; i<numIncomming; i++)
-				{
-					BasicBlock * incommingBlock = pPHI->getIncomingBlock(i);
-					if(VMap.find(incommingBlock) != VMap.end() )
-					{
-						Value * incommingValue = pPHI->getIncomingValue(i);
-
-						if(VMap.find(incommingValue) != VMap.end() )
-						{
-							incommingValue = VMap[incommingValue];
-						}
-
-						pPHI->addIncoming(incommingValue, cast<BasicBlock>(VMap[incommingBlock]));
-
-					}
-				} 
-
-			}
-		}
-	}
+	
 }
 
 void CrossLoopInstrument::AddHooksToSkippableLoad(set<LoadInst *> & setLoad, LoopInfo * pLI, ValueToValueMapTy &VMap, set<Value *> & setMonitoredValue, BasicBlock * pCondition2)
@@ -2223,22 +2130,20 @@ void CrossLoopInstrument::AddHooksToSkippableLoad(set<LoadInst *> & setLoad, Loo
 }
 
 
-void CrossLoopInstrument::AddHooksToInnerLoop(vector<BasicBlock *> & vecAdd, ValueToValueMapTy & VMap, vector<LoadInst *> & vecLoad, vector<Instruction *> & vecIn, vector<Instruction *> & vecOut, vector<MemTransferInst *> & vecMem)
+void CrossLoopInstrument::AddHooksToInnerLoop(Loop * pLoop, ValueToValueMapTy & VMap, vector<LoadInst *> & vecLoad, vector<Instruction *> & vecIn, vector<Instruction *> & vecOut, vector<MemTransferInst *> & vecMem)
 {
-	BasicBlock * pCondition2 = vecAdd[1];
-	BasicBlock * pElseBody = vecAdd[3];
 
-	Function * pCurrent = pElseBody->getParent();
+	Function * pCurrent = pLoop->getHeader()->getParent();
 
 	AttributeSet attSet;
-	BasicBlock::iterator pFirstInsert = pCondition2->getFirstInsertionPt();
+	BasicBlock::iterator pFirstInsert = pLoop->getLoopPreheader()->getFirstInsertionPt();
 
 	//return;
 	InlineHookDelimit(pFirstInsert);
 
 	//return;
 
-	TerminatorInst * pTerminator = pElseBody->getTerminator();
+	TerminatorInst * pTerminator = pLoop->getLoopPreheader()->getTerminator();
 	vector<pair<Function *, int> >::iterator itParaBegin = this->MonitoredElems.MonitoredPara.begin();
 	vector<pair<Function *, int> >::iterator itParaEnd   = this->MonitoredElems.MonitoredPara.end();
 
@@ -2318,6 +2223,7 @@ void CrossLoopInstrument::AddHooksToInnerLoop(vector<BasicBlock *> & vecAdd, Val
 		}
 	}
 
+/*
 	if(setSkippedLoad.size() > 0)
 	{
 		LoadInst * bFirstLoad = (*setSkippedLoad.begin());
@@ -2327,6 +2233,7 @@ void CrossLoopInstrument::AddHooksToInnerLoop(vector<BasicBlock *> & vecAdd, Val
 		AddHooksToSkippableLoad(setSkippedLoad, pCurrentLI, VMap, setMonitoredValue, pElseBody);
 
 	}
+*/
 }
 
 
@@ -2353,15 +2260,15 @@ void CrossLoopInstrument::InstrumentInnerLoop(Loop * pInnerLoop, PostDominatorTr
 	CollectInstrumentedInst(this->MonitoredElems.MonitoredInst, pInnerLoop, vecLoad, vecIn, vecOut, vecMem);
 
 	//created auxiliary basic block
-	vector<BasicBlock *> vecAdd;
-	CreateIfElseIfBlock(pInnerLoop, vecAdd);
+	//vector<BasicBlock *> vecAdd;
+	//CreateIfElseIfBlock(pInnerLoop, vecAdd);
 	
 	//clone loop
 	ValueToValueMapTy VMap;
-	CloneInnerLoop(pInnerLoop, vecAdd, VMap);
+	CloneInnerLoop(pInnerLoop, VMap);
 
 	//add loop related hooks
-	AddHooksToInnerLoop(vecAdd, VMap, vecLoad, vecIn, vecOut, vecMem);
+	AddHooksToInnerLoop(pInnerLoop, VMap, vecLoad, vecIn, vecOut, vecMem);
 
 	map<Function *, set<Instruction *> >::iterator itMapBegin = FuncCallSiteMapping.begin();
 	map<Function *, set<Instruction *> >::iterator itMapEnd   = FuncCallSiteMapping.end();
@@ -2435,22 +2342,14 @@ void CrossLoopInstrument::ParseInstFile(Function * pInnerFunction, Module * pMod
 
 			this->PossibleSkipLoadInfoMapping[pLoad].push_back(setIndex);
 
-/*
-			for(size_t j = 0; j < this->MonitoredElems.vecFileContent[i].size(); j ++ )
-			{
-				if(this->MonitoredElems.vecFileContent[i][j].find("//---Trip Counter") == 0 )
-				{
-					Value * pTripCounter = SearchLineValue(this->MonitoredElems.vecFileContent[i][j+1], pInnerFunction);
-					this->PossibleSkipLoadTripCounter[pLoad] = pTripCounter;
-				}
-			}
-*/
 		}
 	}
 }
 
 bool CrossLoopInstrument::runOnModule(Module& M)
 {
+
+	errs() << "runOnModule\n";
 	if(strLibrary != "" )
 	{
 		ParseLibraryFunctionFile(strLibrary, &M, this->LibraryTypeMapping);
@@ -2490,10 +2389,6 @@ bool CrossLoopInstrument::runOnModule(Module& M)
 
 	InstrumentMain(&M);
 
-	if(this->bGivenOuterLoop)
-	{
-		InstrumentOuterLoop(this->pOuterLoop);
-	}
 
 	Function * pInnerFunction = SearchFunctionByName(M, strInnerFileName, strInnerFuncName, uInnerSrcLine);
 

@@ -26,6 +26,7 @@ namespace llvm_Commons
 	*/
 
 	bool BeArrayAccess(Loop * pLoop, LoadInst * pLoad, ScalarEvolution * SE, DataLayout * DL);
+	bool BeArrayWrite(Loop * pLoop, StoreInst * pStore, ScalarEvolution * SE, DataLayout * DL);
 	void AnalyzeArrayAccess(LoadInst * pLoad, Loop * pLoop, ScalarEvolution * SE, DataLayout * DL, vector<set<Value *> > & vecResult);
 	//void CalCulateIndex(LoadInst * pLoad, Loop * pLoop, ScalarEvolution * SE, set<Value *> & setIndex, set<Value * > & setArrayBase);
 

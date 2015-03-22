@@ -285,6 +285,12 @@ const SCEV * DecondeTripCounterSCEV(const SCEV * pSCEV, Loop * pLoop, ScalarEvol
 		}
 	}
 
+	if(SCEVParentMapping.find(pSCEV) == SCEVParentMapping.end())
+	{
+		errs() << "not found\n";
+	}
+
+
 	map<const SCEV *, set<Value * > > SCEVValMapping;
 
 	vector<const SCEV *>::iterator itSCEVBegin = vecBaseSCEV.begin();
@@ -299,6 +305,13 @@ const SCEV * DecondeTripCounterSCEV(const SCEV * pSCEV, Loop * pLoop, ScalarEvol
 		while(vecWorkList.size()>0 )
 		{
 			const SCEV * pCurrent = vecWorkList.front();
+			pCurrent->dump();
+
+			if(SCEVParentMapping.find(pCurrent) == SCEVParentMapping.end())
+			{
+				errs() << "not found\n";
+			}
+
 			vecWorkList.pop();
 
 			if(const SCEVUnknown * pUnknown = dyn_cast<SCEVUnknown>(pCurrent) )
@@ -314,6 +327,7 @@ const SCEV * DecondeTripCounterSCEV(const SCEV * pSCEV, Loop * pLoop, ScalarEvol
 				SCEVValMapping[pUnknown].insert(pRelatedValue);
 				SearchParentInst(SCEVParentMapping[pUnknown], pUnknown, SCEVValMapping);
 				vecWorkList.push(SCEVParentMapping[pUnknown]);
+
 			}
 			else
 			{
@@ -338,10 +352,13 @@ const SCEV * DecondeTripCounterSCEV(const SCEV * pSCEV, Loop * pLoop, ScalarEvol
 				}
 
 				SearchParentInst(SCEVParentMapping[pCurrent], pCurrent, SCEVValMapping);
+		
 				vecWorkList.push(SCEVParentMapping[pCurrent]);
 			}
 		}
 	}
+
+	errs() << "here\n";
 
 	map<Value *, const SCEV *>::iterator itMapBegin = ValSCEVMapping.begin();
 	map<Value *, const SCEV *>::iterator itMapEnd   = ValSCEVMapping.end();
@@ -430,13 +447,107 @@ const SCEV * DecondeTripCounterSCEV(const SCEV * pSCEV, Loop * pLoop, ScalarEvol
 	return pNew;
 }
 
+Value * CalculateLoopTripCounter(Loop * pLoop)
+{
+	if(BasicBlock * ExitingBB = pLoop->getExitingBlock())
+	{
+		TerminatorInst * pTerminator = ExitingBB->getTerminator();
+
+		if(pTerminator == NULL)
+		{
+			return NULL;
+		}
+
+		if(BranchInst * pBranch = dyn_cast<BranchInst>(pTerminator))
+		{
+			if(pBranch->isConditional())
+			{
+				if(ICmpInst * pCmp = dyn_cast<ICmpInst>(pBranch->getCondition()))
+				{
+					if(ConstantInt * pConZero = dyn_cast<ConstantInt>(pCmp->getOperand(1)))
+					{
+						if(!pConZero->isZero())
+						{
+							return NULL;
+						}
+
+						if(BinaryOperator  * pBinary = dyn_cast<BinaryOperator>(pCmp->getOperand(0)))
+						{
+							if(pBinary->getParent() != ExitingBB)
+							{
+								return NULL;
+							}
+
+							if(pBinary->getOpcode() != Instruction::Add )
+							{
+								return NULL;
+							}
+
+							if(ConstantInt * pConMinusOne = dyn_cast<ConstantInt>(pBinary->getOperand(1)))
+							{
+								if(!pConMinusOne->isMinusOne())
+								{
+									return NULL;
+								}
+
+								if(PHINode * pPHI = dyn_cast<PHINode>(pBinary->getOperand(0)))
+								{
+
+									if(pPHI->getParent() != pLoop->getHeader())
+									{
+										return NULL;
+									}
+
+									if(pPHI->getNumIncomingValues() != 2)
+									{
+										return NULL;
+									}
+
+									if(pLoop->contains(pPHI->getIncomingBlock(0)))
+									{
+										
+										if(pPHI->getIncomingValue(0) != pBinary)
+										{
+											return NULL;
+										}
+
+										return pPHI->getIncomingValue(1);
+									}
+									else if(pLoop->contains(pPHI->getIncomingBlock(1)))
+									{
+										if(pPHI->getIncomingValue(1) != pBinary)
+										{
+											return NULL;
+										}
+
+										return pPHI->getIncomingValue(0);
+									}
+								}
+							}
+							
+						}
+					}
+				}
+			}	
+		}
+	}
+
+	return NULL;
+}
+
 
 const SCEV * CalculateLoopTripCounter(Loop * pLoop, ScalarEvolution * SE)
 {
 	if(BasicBlock * ExitingBB = pLoop->getExitingBlock())
 	{
+		errs() << ExitingBB->getName() << "\n";
+		errs() << pLoop->getHeader()->getName() << "\n";
+		SE->getBackedgeTakenCount(pLoop)->dump();
 		const SCEV * pTripCounter = SE->getExitCount(pLoop, ExitingBB);
 
+		pTripCounter->dump();
+
+		exit(0);
 		if(const SCEVUnknown * pUnknown = dyn_cast<const SCEVUnknown>(pTripCounter))
 		{
 			return pUnknown;
@@ -740,7 +851,6 @@ int64_t CalculateStride(Value * pValue, Loop * pLoop, ScalarEvolution * SE, Data
 
 	if(!IsIterativeVariable(pSCEV, pLoop, SE))
 	{
-		errs() << "hereh" << "\n";
 		return 0;
 	}
 
@@ -750,7 +860,6 @@ int64_t CalculateStride(Value * pValue, Loop * pLoop, ScalarEvolution * SE, Data
 	}
 	else
 	{
-		errs() << "here" << "\n";
 		return 0;
 	}
 }

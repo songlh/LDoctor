@@ -333,6 +333,36 @@ bool beInvariantArray(Loop * pLoop, Value * pValue )
 	return true;
 }
 
+bool beNotLargerConstant(Value * pValue)
+{
+	if(ConstantInt * pConstant = dyn_cast<ConstantInt>(pValue))
+	{
+		if(pConstant->getSExtValue() < 100) 
+		{
+			return true;
+		}
+	}
+	else if(BinaryOperator * pBinary = dyn_cast<BinaryOperator>(pValue))
+	{
+		if(pBinary->getOpcode() == Instruction::And)
+		{
+			for(unsigned i = 0; i < pBinary->getNumOperands(); i ++ )
+			{
+				if(ConstantInt * pConstant = dyn_cast<ConstantInt>(pBinary->getOperand(i)))
+				{
+					if(pConstant->getSExtValue() < 16 )
+					{
+						return true;
+					}
+				}
+			}
+		}
+	}
+
+	return false;
+}
+
+
 
 
 }

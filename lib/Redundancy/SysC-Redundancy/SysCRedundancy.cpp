@@ -103,6 +103,8 @@ void SysCRedundancy::CollectSEInstInsideLoop(Loop * pLoop, set<Instruction *> & 
 
 				if(pCalled == NULL)  // this should be changed
 				{
+					setSideEffectInst.insert(II);
+
 					continue;
 				}
 
@@ -211,6 +213,7 @@ void SysCRedundancy::CollectSEInstForCallee(Function * pFunction, set<Instructio
 
 					if(pCalled == NULL)
 					{
+						setSideEffectInst.insert(II);
 						continue;
 					}
 
@@ -262,6 +265,8 @@ void SysCRedundancy::RedundantSystemCallChecking(Loop * pLoop)
 
 	for(; itSetInstBegin != itSetInstEnd; itSetInstBegin ++)
 	{
+		//(*itSetInstBegin)->dump();
+
 		if(!(isa<CallInst>(*itSetInstBegin) || isa<InvokeInst>(*itSetInstBegin))) 
 		{
 			return;
@@ -309,8 +314,7 @@ void SysCRedundancy::RedundantSystemCallChecking(Loop * pLoop)
 		itSetInstEnd   = setSEInstInCallee.end();
 
 		for(; itSetInstBegin != itSetInstEnd; itSetInstBegin ++ )
-		{
-			
+		{	
 			if(isa<CallInst>(*itSetInstBegin) || isa<InvokeInst>(*itSetInstBegin ))
 			{
 				if(isa<MemIntrinsic>(*itSetInstBegin))
@@ -354,6 +358,7 @@ void SysCRedundancy::RedundantSystemCallChecking(Loop * pLoop)
 			
 		}
 	}
+
 
 
 	map<BasicBlock *, set<Instruction *> >::iterator itMapBegin = BlockInstSetMapping.begin();
@@ -425,6 +430,8 @@ bool SysCRedundancy::runOnModule(Module& M)
 		errs() << "Cannot find the recursive function!\n";
 		return false;
 	}
+
+	errs() << pFunction->getName() << "\n";
 
 	LoopInfo * pLI = &(getAnalysis<LoopInfo>(*pFunction));
 	Loop * pLoop; 

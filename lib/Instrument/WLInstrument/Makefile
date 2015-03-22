@@ -16,7 +16,7 @@ LOADABLE_MODULE := 1
 #endif
 #endif
 
-USEDLIBS = Search.a 
+USEDLIBS = Search.a Loop.a
 
 #
 # Include Makefile.common so we know what to do.

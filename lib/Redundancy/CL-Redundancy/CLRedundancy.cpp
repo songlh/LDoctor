@@ -106,6 +106,7 @@ char CrossLoopRedundancy::ID = 0;
 void CrossLoopRedundancy::getAnalysisUsage(AnalysisUsage &AU) const 
 {
 	AU.setPreservesAll();
+	AU.addRequired<DominatorTree>();
 	AU.addRequired<PostDominatorTree>();
 	AU.addRequired<LoopInfo>();
 	AU.addRequired<DataLayout>();
@@ -117,6 +118,7 @@ CrossLoopRedundancy::CrossLoopRedundancy(): ModulePass(ID)
 {
 	PassRegistry &Registry = *PassRegistry::getPassRegistry();
 	initializeDataLayoutPass(Registry);
+	initializeDominatorTreePass(Registry);
 	initializePostDominatorTreePass(Registry);
 }
 
@@ -328,6 +330,31 @@ void CrossLoopRedundancy::CollectSideEffectInstruction(Loop * pLoop, set<Instruc
 
 	Function * pFunction = (*pLoop->block_begin())->getParent();
 
+/*
+	MAPBeforeAfterPair mapBeforeAfter;
+	LiveAnalysis( mapBeforeAfter, pFunction);
+
+	set<Edge> setEdges;
+	SearchExitEdgesForLoop(setEdges, pLoop);
+
+	set<Edge>::iterator itEdgeBegin = setEdges.begin();
+	set<Edge>::iterator itEdgeEnd = setEdges.end();
+
+	for(; itEdgeBegin != itEdgeEnd; itEdgeBegin++)
+	{
+		SETBefore::iterator itSetInstBegin = mapBeforeAfter[(*itEdgeBegin).first].second.begin();
+		SETBefore::iterator itSetInstEnd = mapBeforeAfter[(*itEdgeBegin).first].second.end();
+
+		for(; itSetInstBegin != itSetInstEnd; itSetInstBegin++)
+		{
+			if(setBlocksInLoop.find((*itSetInstBegin)->getParent()) != setBlocksInLoop.end() )
+			{
+				setSideEffectInsts.insert(*itSetInstBegin);
+			}
+		}
+	}
+*/
+
 	MAPBlockBeforeAfterPair mapBeforeAndAfter;
 	PreciseLiveAnalysis(mapBeforeAndAfter, pFunction);
 
@@ -350,13 +377,13 @@ void CrossLoopRedundancy::CollectSideEffectInstruction(Loop * pLoop, set<Instruc
 			}
 		}
 	}
-
 }
 
 
-void CrossLoopRedundancy::CollectSideEffectInstructionInsideLoop(Loop * pLoop, set<Instruction *> & setSideEffectInst)
+void CrossLoopRedundancy::CollectSideEffectInstructionInsideLoop(Loop * pLoop, set<Instruction *> & setSideEffectInst, set<BasicBlock *> & setType2Blocks, ControlDependenceGraphBase & CDG)
 {
 	set<BasicBlock *> setBlocksInLoop;
+	set<Instruction *> setSDInstInType2;
 
 	for( Loop::block_iterator BB = pLoop->block_begin(); BB != pLoop->block_end(); ++ BB )
 	{	
@@ -413,6 +440,64 @@ void CrossLoopRedundancy::CollectSideEffectInstructionInsideLoop(Loop * pLoop, s
 		}
 	}
 
+	set<BasicBlock *>::iterator itSetBlockBegin = setType2Blocks.begin();
+	set<BasicBlock *>::iterator itSetBlockEnd   = setType2Blocks.end();
+
+	for(; itSetBlockBegin != itSetBlockEnd; itSetBlockBegin ++ )
+	{
+		BasicBlock * BB = * itSetBlockBegin;
+		for(BasicBlock::iterator II = (BB)->begin() ; II != (BB)->end(); ++ II)
+		{
+			if(StoreInst * pStore = dyn_cast<StoreInst>(II) )
+			{
+				setSDInstInType2.insert(pStore);
+			}
+			else if(isa<CallInst>(II) || isa<InvokeInst>(II) )
+			{
+				if(isa<DbgInfoIntrinsic>(II))
+				{
+					continue;
+				}
+
+				if(isa<MemIntrinsic>(II))
+				{
+					setSDInstInType2.insert(II);
+					continue;
+				}
+
+				CallSite cs(II);
+				Function * pCalled = cs.getCalledFunction();
+
+				if(pCalled == NULL)  // this should be changed
+				{
+					setSDInstInType2.insert(II);
+					continue;
+				}
+
+				if(this->LibraryTypeMapping.find(pCalled) != this->LibraryTypeMapping.end() )
+				{
+					if(this->LibraryTypeMapping[pCalled] == LF_TRANSPARENT)
+					{
+						continue;
+					}
+					else if(this->LibraryTypeMapping[pCalled] == LF_PURE)
+					{
+						continue;
+					}
+
+					setSDInstInType2.insert(II);
+					continue;
+				}
+
+				if(pCalled->isDeclaration())
+				{
+					setSDInstInType2.insert(II);
+					continue;
+				}
+			}
+		}
+	}
+
 	Function * pFunction = (*pLoop->block_begin())->getParent();
 
 	MAPBlockBeforeAfterPair mapBeforeAndAfter;
@@ -426,7 +511,6 @@ void CrossLoopRedundancy::CollectSideEffectInstructionInsideLoop(Loop * pLoop, s
 
 	for(; itEdgeBegin != itEdgeEnd; itEdgeBegin++)
 	{
-
 		SETBefore::iterator itSetInstBegin = mapBeforeAndAfter[itEdgeBegin->second].first[itEdgeBegin->first].begin();
 		SETBefore::iterator itSetInstEnd = mapBeforeAndAfter[itEdgeBegin->second].first[itEdgeBegin->first].end();
 
@@ -438,6 +522,70 @@ void CrossLoopRedundancy::CollectSideEffectInstructionInsideLoop(Loop * pLoop, s
 			}
 		}
 	}
+
+	set<Edge> setType2Edges;
+	SearchExitEdgesForBlocks(setType2Edges, setType2Blocks);
+
+	itEdgeBegin = setType2Edges.begin();
+	itEdgeEnd = setType2Edges.end();
+
+	for(; itEdgeBegin != itEdgeEnd; itEdgeBegin++)
+	{
+		if(pLoop->contains(itEdgeBegin->second))
+		{
+			continue;
+		}
+
+		SETBefore::iterator itSetInstBegin = mapBeforeAndAfter[itEdgeBegin->second].first[itEdgeBegin->first].begin();
+		SETBefore::iterator itSetInstEnd = mapBeforeAndAfter[itEdgeBegin->second].first[itEdgeBegin->first].end();
+
+		for(; itSetInstBegin != itSetInstEnd; itSetInstBegin++)
+		{
+			if(setType2Blocks.find((*itSetInstBegin)->getParent()) != setType2Blocks.end() )
+			{
+				setSDInstInType2.insert(*itSetInstBegin);
+			}
+		}
+	}
+
+	set<Instruction *>::iterator itSetBegin = setSDInstInType2.begin();
+	set<Instruction *>::iterator itSetEnd = setSDInstInType2.end();
+
+	for(; itSetBegin != itSetEnd; itSetBegin ++)
+	{
+		BasicBlock * pBlock = (*itSetBegin)->getParent();
+
+		for( Loop::block_iterator BB = pLoop->block_begin(); BB != pLoop->block_end(); ++ BB )
+		{					
+			if(CDG.influences(*BB, pBlock))
+			{
+				TerminatorInst * pTerminator = (*BB)->getTerminator();
+			
+				if(pTerminator != NULL)
+				{
+					if(BranchInst * pBranch = dyn_cast<BranchInst>(pTerminator))
+					{
+						if(pBranch->isConditional())
+						{
+							if(Instruction * pInst = dyn_cast<Instruction>(pBranch->getCondition() ))
+							{
+								setSideEffectInst.insert(pInst);
+							}
+						}
+					}
+					else if(SwitchInst * pSwitch = dyn_cast<SwitchInst>(pTerminator))
+					{
+						if(Instruction * pInst = dyn_cast<Instruction>(pSwitch->getCondition() ))
+						{
+							setSideEffectInst.insert(pInst);
+						}
+					}
+				}
+			}
+		}
+
+	}
+
 }
 
 void CrossLoopRedundancy::CalDependenceForSEInst(Loop * pLoop, set<Instruction *> & SEInst, set<Value *> & setDependentValue, ControlDependenceGraphBase & CDG)
@@ -504,6 +652,7 @@ void CrossLoopRedundancy::CalDependenceForSEInst(Loop * pLoop, set<Instruction *
 			}
 		}
 	}
+
 }
 
 //all content are dependence
@@ -526,6 +675,7 @@ void CrossLoopRedundancy::LoopDependenceAnalysis(Loop * pLoop, set<Value *> & se
 	while(vecWorkList.size() > 0)
 	{
 		Value * pCurrentValue = vecWorkList.back();
+		//pCurrentValue->dump();
 		vecWorkList.pop_back();
 
 		if(setProcessedValue.find(pCurrentValue) != setProcessedValue.end() )
@@ -579,6 +729,7 @@ void CrossLoopRedundancy::LoopDependenceAnalysis(Loop * pLoop, set<Value *> & se
 				continue;
 			}
 
+
 			if(this->LibraryTypeMapping.find(pCalled) != this->LibraryTypeMapping.end())
 			{
 				if(this->LibraryTypeMapping[pCalled] != LF_TRANSPARENT && this->LibraryTypeMapping[pCalled] != LF_MALLOC )
@@ -616,7 +767,6 @@ void CrossLoopRedundancy::LoopDependenceAnalysis(Loop * pLoop, set<Value *> & se
 					{
 						if(Argument * pArg = dyn_cast<Argument>(*itSetValueBegin) )
 						{
-							//pArg->dump();
 							assert(pArg->getParent() == pCalled);	
 							vecValueDependence.push_back(pCurrent->getOperand(pArg->getArgNo()));
 						}
@@ -680,15 +830,15 @@ void CrossLoopRedundancy::LoopDependenceAnalysis(Loop * pLoop, set<Value *> & se
 }
 
 
-void CrossLoopRedundancy::LoopDependenceAnalysis(Loop * pLoop, set<Value *> & setDependentValue, PostDominatorTree * PDT)
+void CrossLoopRedundancy::LoopDependenceAnalysis(Loop * pLoop, set<Value *> & setDependentValue, PostDominatorTree * PDT, set<BasicBlock* > & setType2Blocks)
 {
 	Function * pCurrentFunction = pLoop->getHeader()->getParent();
 	
-	set<Instruction *> setLoopInstruction;
-	CollectSideEffectInstructionInsideLoop(pLoop, setLoopInstruction);
-
 	ControlDependenceGraphBase CDG;
 	CDG.graphForFunction(*pCurrentFunction, *PDT);
+
+	set<Instruction *> setLoopInstruction;
+	CollectSideEffectInstructionInsideLoop(pLoop, setLoopInstruction, setType2Blocks, CDG);
 
 	set<Value *> setSEInstDependence ;
 	CalDependenceForSEInst(pLoop, setLoopInstruction, setSEInstDependence, CDG);
@@ -1308,8 +1458,6 @@ void CrossLoopRedundancy::AnalyzeValueDefinedOutsideLoop(set<Value *> & setDepen
 	}
 }
 
-
-
 bool CrossLoopRedundancy::runOnModule(Module& M)
 {
 	if(strLibrary != "" )
@@ -1320,6 +1468,7 @@ bool CrossLoopRedundancy::runOnModule(Module& M)
 	this->pDL = &getAnalysis<DataLayout>();
 
 	Function * pInnerFunction = SearchFunctionByName(M, strInnerFileName, strInnerFuncName, uInnerSrcLine);
+	
 	if(pInnerFunction == NULL)
 	{
 		errs() << "Cannot find the function containing the inner loop!\n";
@@ -1328,6 +1477,7 @@ bool CrossLoopRedundancy::runOnModule(Module& M)
 
 	this->SE  = &getAnalysis<ScalarEvolution>(*pInnerFunction);
 
+	DominatorTree * DT      = &getAnalysis<DominatorTree>(*pInnerFunction);
 	PostDominatorTree * PDT = &getAnalysis<PostDominatorTree>(*pInnerFunction);
 	LoopInfo * pInnerLI = &(getAnalysis<LoopInfo>(*pInnerFunction));
 	Loop * pInnerLoop; 
@@ -1353,6 +1503,11 @@ bool CrossLoopRedundancy::runOnModule(Module& M)
 		return false;
 	}
 
+	set<BasicBlock *> setType1Blocks;
+	set<BasicBlock *> setType2Blocks;
+
+	Search2TypeBlocksInLoop(setType1Blocks, setType2Blocks, pInnerLoop, pInnerFunction, PDT, DT);
+
 	CollectCalleeInsideLoop(pInnerLoop, this->setCallee, this->CalleeCallSiteMapping, this->LibraryTypeMapping);
 
 	this->IPD = &getAnalysis<InterProcDep>();
@@ -1362,17 +1517,19 @@ bool CrossLoopRedundancy::runOnModule(Module& M)
 
 	set<Value *> setValue;
 
-	LoopDependenceAnalysis(pInnerLoop, setValue, PDT);
+	LoopDependenceAnalysis(pInnerLoop, setValue, PDT, setType2Blocks);
 
 	map<Value *, OutsideValueKind> OutsideValueKindMapping;
 
-	//AnalyzeValueDefinedOutsideLoop(setValue, pInnerLoop,  PDT);
-
+	
 	set<Value *>::iterator itSetBegin = setValue.begin();
 	set<Value *>::iterator itSetEnd   = setValue.end();
 
-	set<Value *> setTripCounter;
-	CalCulateLoopTripCounter(pInnerLoop, this->SE, setTripCounter); 
+	//set<Value *> setTripCounter;
+	//CalCulateLoopTripCounter(pInnerLoop, this->SE, setTripCounter); 
+
+	int iInsideInstruction = 0;
+	int iOutsideValue = 0;
 
 	for(; itSetBegin != itSetEnd; itSetBegin ++)
 	{
@@ -1384,80 +1541,25 @@ bool CrossLoopRedundancy::runOnModule(Module& M)
 			}
 
 			PrintInstructionInfo(pInst);
-/*
-			if(this->OutsideValueKindMapping.find(pInst) != this->OutsideValueKindMapping.end())
+
+			if(pInst->getParent()->getParent() != pInnerFunction)
 			{
-				if(this->OutsideValueKindMapping[pInst] == OVK_NoDependence )
-				{
-					errs() << "//---No Dependence Skip\n";
-				}
-				else if(this->OutsideValueKindMapping[pInst] == OVK_OnlyControl)
-				{
-					errs() << "//---Control Skip\n";
-				}
-				else if(this->OutsideValueKindMapping[pInst] == OVK_Evolve)
-				{
-					errs() << "//---Start of Iterative Variable ";
-
-					if(IterativeStrideMapping[pInst].size() >0)
-					{
-						errs() << "Stride: ";
-
-						for(unsigned i = 0; i < IterativeStrideMapping[pInst].size(); i ++ )
-						{
-							errs() << IterativeStrideMapping[pInst][i] << " ";
-						}
-					}
-
-					errs() << "\n";
-
-				}
+				iInsideInstruction ++;
+			}
+			else if(pInnerLoop->contains(pInst->getParent()))
+			{
+				iInsideInstruction ++;
+			}
+			else
+			{
+				iOutsideValue ++;
 			}
 
-			if(setTripCounter.find(pInst) != setTripCounter.end())
-			{
-				errs() << "//---Possible Loop Boundary\n";
-			}
-*/
 		}
 		else if(Argument * pArg = dyn_cast<Argument>(*itSetBegin))
 		{
 			PrintArgumentInfo(pArg);
-
-/*
-			if(this->OutsideValueKindMapping.find(pArg) != this->OutsideValueKindMapping.end())
-			{
-				if(this->OutsideValueKindMapping[pArg] == OVK_NoDependence )
-				{
-					errs() << "//---No Dependence Skip\n";
-				}
-				else if(this->OutsideValueKindMapping[pArg] == OVK_OnlyControl)
-				{
-					errs() << "//---Control Skip\n";
-				}
-				else if(this->OutsideValueKindMapping[pArg] == OVK_Evolve)
-				{
-					errs() << "//---Start of Iterative Variable ";
-
-					if(IterativeStrideMapping[pArg].size() >0)
-					{
-						errs() << "Stride: ";
-
-						for(unsigned i = 0; i < IterativeStrideMapping[pArg].size(); i ++ )
-						{
-							errs() << IterativeStrideMapping[pArg][i] << " ";
-						}
-					}
-
-					errs() << "\n";
-				}
-			}
-
-			if(setTripCounter.find(pArg) != setTripCounter.end())
-			{
-				errs() << "//---Possible Loop Boundary\n";
-			}
-*/
+			iOutsideValue ++;
 		}
 		else
 		{
@@ -1470,38 +1572,11 @@ bool CrossLoopRedundancy::runOnModule(Module& M)
 		}
 	}
 
-	
+	errs() << "********************************\n";
+	errs() << "Debug: \n";
+	errs() << "Instruction inside the buggy loop: " << iInsideInstruction << "\n";
+	errs() << "Value defined outside the buggy loop: " << iOutsideValue << "\n";
 
-/*
-	map<Instruction *, vector<Value * > >::iterator itBoundaryMapBegin = mapBoundary.begin();
-	map<Instruction *, vector<Value * > >::iterator itBoundaryMapEnd   = mapBoundary.end();
-
-	for(; itBoundaryMapBegin != itBoundaryMapEnd; itBoundaryMapBegin++ )
-	{
-		errs() << "//---" << "Interative Variables: ";
-		Instruction * pInst = itBoundaryMapBegin->first;
-		PrintInstructionInfo(pInst);
-		
-		vector<Value *>::iterator itVecBegin = itBoundaryMapBegin->second.begin();
-		vector<Value *>::iterator itVecEnd   = itBoundaryMapBegin->second.end();
-
-		for(; itVecBegin != itVecEnd; itVecBegin++)
-		{
-			errs() << "//---Boundary: ";
-			if(Instruction * pI = dyn_cast<Instruction>(*itVecBegin))
-			{
-				PrintInstructionInfo(pI);
-			}
-			else if(Argument * pArg = dyn_cast<Argument>(*itVecBegin))
-			{
-				PrintArgumentInfo(pArg);
-			}
-		}
-
-	
-	}
-
-*/
 	return false;
 }
 

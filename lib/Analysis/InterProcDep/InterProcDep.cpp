@@ -1983,7 +1983,6 @@ void InterProcDep::InterProcDependenceAnalysis()
 	itSetFuncEnd   = RecursiveCalls.end();
 
 
-
 	for(; itSetFuncBegin != itSetFuncEnd; itSetFuncBegin ++ )
 	{
 		InfeasiblePathDependenceAnalysis(*itSetFuncBegin);

@@ -221,6 +221,19 @@ unsigned long EditDistance(vector<Type> & vecA, vector<Type> & vecB )
 	return d[index][vecB.size()];
 }
 
+size_t GetDifference(size_t sA, size_t sB)
+{
+	if(sA > sB)
+	{
+		return sA - sB;
+	}
+	else
+	{
+		return sB - sA;
+	}
+}
+
+
 template <typename Type>
 double CompTwoSequence(vector<Type> & SeqA, vector<Type> & SeqB)
 {
@@ -247,6 +260,7 @@ double CompTwoSequence(vector<Type> & SeqA, vector<Type> & SeqB)
 	}
 
 	unsigned long ValueDistance = EditDistance(SeqA, SeqB);
+	//errs() << SeqA.size() << " " << SeqB.size() << " " << ValueDistance << "\n"; 
 
 	vector<Type> vecReverseSeq = SeqB;
 	reverse(vecReverseSeq.begin(), vecReverseSeq.end());
@@ -254,7 +268,7 @@ double CompTwoSequence(vector<Type> & SeqA, vector<Type> & SeqB)
 		
 	unsigned long minDistance = min(ValueDistance, ReverseValue);
 	unsigned long minLength = min(SeqA.size(), SeqB.size());
-	unsigned long uLengthDifference = abs(SeqA.size() - SeqB.size());
+	unsigned long uLengthDifference = GetDifference(SeqA.size(), SeqB.size());
 
 	return 1.0 - (minDistance - uLengthDifference) * 1.0 / minLength;
 }
@@ -292,6 +306,8 @@ size_t GetMaxFromSet(set<size_t > & setInput)
 
 	return result;
 }
+
+
 
 static cl::opt<unsigned> uInnerSrcLine("noInnerLine", 
 					cl::desc("Source Code Line Number for Inner Loop"), cl::Optional, 
@@ -446,6 +462,7 @@ void CLCAL::ParseTraceFile(vector<vector<LogRecord> > & vecLogRecord)
 			case LogRecord::Delimiter:
 			{
 				iCurrent = log.DR.numExecution;
+				//errs() << iCurrent << "\n";
 				if(iCurrent != iLast)
 				{
 					if(vecTmp.size() > 0)
@@ -475,6 +492,8 @@ void CLCAL::ParseTraceFile(vector<vector<LogRecord> > & vecLogRecord)
 	errs() << "Para: " << iTotalPara << "\n";
 	errs() << "Mem: "  << iTotalMem << "\n";
 	errs() << "Instance: " << vecLogRecord.size() << "\n";
+
+	//exit(0);
 }
 
 
@@ -736,6 +755,7 @@ void CLCAL::BuildIDInstMapping(Function * pFunction)
 	map<LoadInst *, vector<set<Value * > > >::iterator itMapBegin = this->PossibleSkipLoadInfoMapping.begin();
 	map<LoadInst *, vector<set<Value * > > >::iterator itMapEnd   = this->PossibleSkipLoadInfoMapping.end();
 
+
 	for(; itMapBegin != itMapEnd; itMapBegin ++)
 	{
 		MDNode * Node = itMapBegin->first->getMetadata("ins_id");
@@ -754,6 +774,8 @@ void CLCAL::BuildIDInstMapping(Function * pFunction)
 
 			for(; itSetBegin != itSetEnd; itSetBegin ++ )
 			{
+				
+
 				if(Instruction * pInst = dyn_cast<Instruction>(*itSetBegin))
 				{
 					Node = pInst->getMetadata("ins_id");
@@ -776,6 +798,7 @@ void CLCAL::BuildIDInstMapping(Function * pFunction)
 		IDArgMapping[index] = AB;
 		index ++;
 	}
+
 }
 
 void CLCAL::DecodeOneInstance(vector<LogRecord> & Instance, map<int, vector<LogRecord> > & IDValueMapping, map<int, LogRecord> & ArgValueMapping, map<int, vector<char> > & IDMemMapping)
@@ -817,10 +840,12 @@ void CLCAL::DecodeOneInstance(vector<LogRecord> & Instance, map<int, vector<LogR
 			}
 			case LogRecord::Store:
 			{
+				errs() << "Store\n" ;
 				assert(0);
 			}
 			case LogRecord::Delimiter:
 			{
+				errs() << i << " " << Instance.size() << " " << "Delimiter\n";
 				assert(0);
 			}
 		}
@@ -874,12 +899,18 @@ void CLCAL::CompValueSequence(map<Value *, double> & ValueScoreMapping)
 
 	map<int, vector<LogRecord> >::iterator itMapBegin = this->IDValueMapping1.begin();
 	map<int, vector<LogRecord> >::iterator itMapEnd   = this->IDValueMapping1.end();
-	
+
 	Function * pFunction = pLoop->getHeader()->getParent();
 
 	for(; itMapBegin != itMapEnd; itMapBegin ++ )
 	{
 		int index = itMapBegin->first;
+		
+		if(this->MonitoredElems.MonitoredInst.find(index) == this->MonitoredElems.MonitoredInst.end())
+		{
+			continue;
+		}
+
 		Instruction * pInst = IDInstMapping[index];
 
 		if(isa<MemIntrinsic>(pInst))
@@ -887,10 +918,7 @@ void CLCAL::CompValueSequence(map<Value *, double> & ValueScoreMapping)
 			continue;
 		}
 
-		if(this->MonitoredElems.MonitoredInst.find(index) == this->MonitoredElems.MonitoredInst.end())
-		{
-			continue;
-		}
+		
 
 		if(this->pLoop->contains(pInst->getParent()))
 		{
@@ -902,6 +930,8 @@ void CLCAL::CompValueSequence(map<Value *, double> & ValueScoreMapping)
 		}
 
 	}
+
+	
 
 	itMapBegin = this->IDValueMapping2.begin();
 	itMapEnd   = this->IDValueMapping2.end();
@@ -909,6 +939,12 @@ void CLCAL::CompValueSequence(map<Value *, double> & ValueScoreMapping)
 	for(; itMapBegin != itMapEnd; itMapBegin ++ )
 	{
 		int index = itMapBegin->first;
+
+		if(this->MonitoredElems.MonitoredInst.find(index) == this->MonitoredElems.MonitoredInst.end())
+		{
+			continue;
+		}
+
 		Instruction * pInst = IDInstMapping[index];
 
 		if(isa<MemIntrinsic>(pInst))
@@ -916,10 +952,7 @@ void CLCAL::CompValueSequence(map<Value *, double> & ValueScoreMapping)
 			continue;
 		}
 
-		if(this->MonitoredElems.MonitoredInst.find(index) == this->MonitoredElems.MonitoredInst.end())
-		{
-			continue;
-		}
+		
 
 		if(this->pLoop->contains(pInst->getParent()))
 		{
@@ -930,6 +963,8 @@ void CLCAL::CompValueSequence(map<Value *, double> & ValueScoreMapping)
 			SeqToCompare.insert(index);
 		}
 	}
+
+	
 
 	set<int>::iterator itSetIntBegin = SeqToCompare.begin();
 	set<int>::iterator itSetIntEnd   = SeqToCompare.end();
@@ -954,6 +989,7 @@ void CLCAL::CompValueSequence(map<Value *, double> & ValueScoreMapping)
 			for(size_t i = 0; i < IDValueMapping1[index].size(); i ++ )
 			{
 				Seq1.push_back(IDValueMapping1[index][i].LR.LoadValue);
+
 			}
 
 			for(size_t i = 0; i < IDValueMapping2[index].size(); i ++ )
@@ -979,6 +1015,8 @@ void CLCAL::CompValueSequence(map<Value *, double> & ValueScoreMapping)
 
 		ValueScoreMapping[pInst] = CompTwoSequence(Seq1, Seq2);
 	}
+
+
 }
 
 void CLCAL::CollectMonitoredValue(set<Value *> & setMonitoredValue)
@@ -991,6 +1029,7 @@ void CLCAL::CollectMonitoredValue(set<Value *> & setMonitoredValue)
 		int index = itMapBegin->first;
 		Instruction * pInst = this->IDInstMapping[index];
 		setMonitoredValue.insert(pInst);
+		this->setAppearedValue.insert(pInst);
 	}
 
 	itMapBegin = IDValueMapping2.begin();
@@ -1001,6 +1040,7 @@ void CLCAL::CollectMonitoredValue(set<Value *> & setMonitoredValue)
 		int index = itMapBegin->first;
 		Instruction * pInst = this->IDInstMapping[index];
 		setMonitoredValue.insert(pInst);
+		this->setAppearedValue.insert(pInst);
 	}
 
 	map<int, LogRecord>::iterator itArgMapBegin = ArgValueMapping1.begin();
@@ -1012,6 +1052,8 @@ void CLCAL::CollectMonitoredValue(set<Value *> & setMonitoredValue)
 
 		Argument * pArg = this->IDArgMapping[index];
 		setMonitoredValue.insert(pArg);
+
+		this->setAppearedValue.insert(pArg);
 	}
 
 	itArgMapBegin = ArgValueMapping2.begin();
@@ -1022,7 +1064,10 @@ void CLCAL::CollectMonitoredValue(set<Value *> & setMonitoredValue)
 		int index = itArgMapBegin->first;
 		Argument * pArg = this->IDArgMapping[index];
 		setMonitoredValue.insert(pArg);
+
+		this->setAppearedValue.insert(pArg);
 	}
+
 }
 
 void CLCAL::CompSkipLoad(map<Value *, double > & ValueScoreMapping, set<Value *> & setMonitoredValue)
@@ -1077,6 +1122,7 @@ void CLCAL::CompSkipLoad(map<Value *, double > & ValueScoreMapping, set<Value *>
 
 		if(isa<Argument>(pInit))
 		{
+			
 			for(size_t i = 0; i < IDValueMapping1[iIndexID].size(); i++ )
 			{
 				long ltmp = ArgValueMapping1[iInitID].PR.Value;
@@ -1087,11 +1133,11 @@ void CLCAL::CompSkipLoad(map<Value *, double > & ValueScoreMapping, set<Value *>
 					SeqA.push_back(ltmp);
 					ltmp += stride;
 				}
+
 			}
 
 			for(size_t i = 0; i < IDValueMapping2[iIndexID].size(); i++ )
 			{
-
 				long ltmp = ArgValueMapping2[iInitID].PR.Value;
 				long lFinal = IDValueMapping2[iIndexID][i].IR.Value;
 
@@ -1137,27 +1183,109 @@ void CLCAL::CompSkipLoad(map<Value *, double > & ValueScoreMapping, set<Value *>
 			}
 			else
 			{
-				for(size_t i = 0; i < IDValueMapping1[iIndexID].size(); i++ )
+				
+				if(IDValueMapping1[iIndexID].size() == 1)
 				{
-					long ltmp = IDValueMapping1[iInitID][0].IR.Value;
-					long lFinal = IDValueMapping1[iIndexID][i].IR.Value;
-
-					while(ltmp != lFinal)
+					long lInit1 = abs(IDValueMapping1[iInitID][0].IR.Value);
+					long lFinal1 = abs(IDValueMapping1[iIndexID][0].IR.Value);
+					
+					if(lInit1 > lFinal1)
 					{
-						SeqA.push_back(ltmp);
-						ltmp += stride;
+						long tmp = lFinal1;
+						lFinal1 = lInit1;
+						lInit1 = tmp; 
+					}					
+
+					
+					long lInit2 = abs(IDValueMapping2[iInitID][0].IR.Value);
+					long lFinal2 = abs(IDValueMapping2[iIndexID][0].IR.Value);
+					
+					if(lInit2 > lFinal2)
+					{
+						long tmp = lFinal2;
+						lFinal2 = lInit2;
+						lInit2 = tmp; 
+					}	
+
+					stride = abs(stride);
+
+					this->setLength1.insert((lFinal1 - lInit1)/stride + 1);
+					this->setLength2.insert((lFinal2 - lInit2)/stride + 1);
+
+					if((lInit1 - lInit2)%stride != 0)
+					{
+						ValueScoreMapping[pLoad] = 0;
+						continue;
+					}
+
+					if(lInit1 == lInit2 )
+					{
+						ValueScoreMapping[pLoad] = 1;
+						continue;
+					}
+					else if(lInit1 < lInit2 )
+					{
+						if(lFinal1 > lFinal2)
+						{
+							ValueScoreMapping[pLoad] = 1;
+							continue;
+						}
+						else if(lFinal1 < lInit2 )
+						{
+							ValueScoreMapping[pLoad] = 0;
+							continue;
+						}
+						else
+						{
+							long overlap = lFinal1 - lInit2 + stride;
+							ValueScoreMapping[pLoad] = overlap / min(lFinal1 - lInit1 + stride, lFinal2 - lInit2 + stride);
+							continue;
+						}
+					}
+					else
+					{
+						if(lFinal2 > lFinal1)
+						{
+							ValueScoreMapping[pLoad] = 1;
+							continue;
+						}
+						else if(lFinal2 < lInit1 )
+						{
+							ValueScoreMapping[pLoad] = 0;
+							continue;
+						}
+						else
+						{
+							long overlap = lFinal2 - lInit1 + stride;
+							ValueScoreMapping[pLoad] = overlap / min(lFinal1 - lInit1 + stride, lFinal2 - lInit2 + stride);
+							continue;
+						}
 					}
 				}
-
-				for(size_t i = 0; i < IDValueMapping2[iIndexID].size(); i++ )
+				else
 				{
-					long ltmp = IDValueMapping2[iInitID][0].IR.Value;
-					long lFinal = IDValueMapping2[iIndexID][i].IR.Value;
-
-					while(ltmp != lFinal)
+					for(size_t i = 0; i < IDValueMapping1[iIndexID].size(); i++ )
 					{
-						SeqB.push_back(ltmp);
-						ltmp += stride;
+						long ltmp = IDValueMapping1[iInitID][0].IR.Value;
+						long lFinal = IDValueMapping1[iIndexID][i].IR.Value;
+
+						while(ltmp != lFinal)
+						{
+							SeqA.push_back(ltmp);
+							ltmp += stride;
+						}
+					}
+
+					for(size_t i = 0; i < IDValueMapping2[iIndexID].size(); i++ )
+					{
+						long ltmp = IDValueMapping2[iInitID][0].IR.Value;
+						long lFinal = IDValueMapping2[iIndexID][i].IR.Value;
+
+						while(ltmp != lFinal)
+						{
+							SeqB.push_back(ltmp);
+							ltmp += stride;
+						}
 					}
 				}
 			}
@@ -1165,8 +1293,11 @@ void CLCAL::CompSkipLoad(map<Value *, double > & ValueScoreMapping, set<Value *>
 
 		this->setLength1.insert(SeqA.size());
 		this->setLength2.insert(SeqB.size());
+		
+
 		ValueScoreMapping[pLoad] = CompTwoSequence(SeqA, SeqB);
 	}
+
 }
 
 bool CLCAL::CanSkipThisValue(Value * pValue)
@@ -1184,16 +1315,19 @@ bool CLCAL::CanSkipThisValue(Value * pValue)
 	set<PHINode *>::iterator itPHIBegin = UseOne.begin();
 	set<PHINode *>::iterator itPHIEnd   = UseOne.end();
 
+
 	for(; itPHIBegin != itPHIEnd; itPHIBegin ++ )
 	{
 		PHINode * pPHI = *itPHIBegin;
 
-		for(unsigned i = 0; pPHI->getNumIncomingValues(); i ++)
+		for(unsigned i = 0; i < pPHI->getNumIncomingValues(); i ++)
 		{
+
 			if(!pLoop->contains(pPHI->getIncomingBlock(i)))
 			{
 				continue;
 			}
+
 
 			if(Instruction * pInst = dyn_cast<Instruction>(pPHI->getIncomingValue(i)))
 			{
@@ -1202,7 +1336,6 @@ bool CLCAL::CanSkipThisValue(Value * pValue)
 					return false;
 				}
 			}
-
 		}
 	}
 
@@ -1231,9 +1364,11 @@ bool CLCAL::CompIterativeStart(Value * pValue, long Value1, long Value2, map<Val
 	size_t lengthA = GetMaxFromSet(this->setLength1);
 	size_t lengthB = GetMaxFromSet(this->setLength2);
 	
-	size_t lengthDiff = abs(lengthA - lengthB);
+	size_t lengthDiff = GetDifference(lengthA, lengthB);
 	size_t minLength = min(lengthA, lengthB);
 
+	double differentIteration;
+	
 	for(; itPHIBegin != itPHIEnd; itPHIBegin ++ )
 	{
 		if(!IsIterativeVariable(*itPHIBegin, this->pLoop, this->SE))
@@ -1251,7 +1386,7 @@ bool CLCAL::CompIterativeStart(Value * pValue, long Value1, long Value2, map<Val
 		count ++;
 
 		stride = abs(stride);
-
+		
 		long ValueDiff = abs(Value1 - Value2);
 
 		if(ValueDiff % stride != 0 )
@@ -1261,7 +1396,7 @@ bool CLCAL::CompIterativeStart(Value * pValue, long Value1, long Value2, map<Val
 
 		ValueDiff = ValueDiff / stride;
 
-		double differentIteration;
+		
 
 		if(ValueDiff > (long)lengthDiff)
 		{
@@ -1270,12 +1405,27 @@ bool CLCAL::CompIterativeStart(Value * pValue, long Value1, long Value2, map<Val
 		else
 		{
 			differentIteration = 0;
+
 		}
 
 		dResult += 1 - differentIteration/minLength;
 	}
 
+	//errs() << count << "\n";
+
+/*
+	if(dResult < 0)
+	{
+		errs() << dResult << " " << minLength << " " << differentIteration << "\n";
+		pValue->dump();
+		exit(0);
+	}
+*/
+
 	ValueScoreMapping[pValue] = dResult/count;
+
+
+	//errs() << "after iterative\n";
 	return true;
 }
 
@@ -1304,6 +1454,9 @@ int CLCAL::CompInstancePair(vector<LogRecord> & InstanceA, vector<LogRecord> & I
 
 	map<Value*, double> ValueScoreMapping;
 	CompMemSequence(ValueScoreMapping);
+
+	//errs() << this->IDValueMapping1.size() << " " << this->ArgValueMapping1.size() << "\n";
+
 	CompValueSequence(ValueScoreMapping);
 	CompSkipLoad(ValueScoreMapping, setMonitoredValue);
 
@@ -1315,6 +1468,9 @@ int CLCAL::CompInstancePair(vector<LogRecord> & InstanceA, vector<LogRecord> & I
 
 	set<Value *>::iterator itSetBegin = setMonitoredValue.begin();
 	set<Value *>::iterator itSetEnd   = setMonitoredValue.end();
+
+	//errs() << ValueScoreMapping.size() << "\n";
+
 
 	for(; itSetBegin != itSetEnd; itSetBegin ++ )
 	{
@@ -1364,9 +1520,13 @@ int CLCAL::CompInstancePair(vector<LogRecord> & InstanceA, vector<LogRecord> & I
 
 			lValue1 = this->ArgValueMapping1[iIndex].PR.Value;
 			lValue2 = this->ArgValueMapping2[iIndex].PR.Value;
+
 		}
 		else if(Instruction * pInst = dyn_cast<Instruction>(*itSetBegin))
 		{
+			//(*itSetBegin)->dump();
+			//errs() << this->IDValueMapping1[iIndex][0].IR.Value << " " << this->IDValueMapping2[iIndex][0].IR.Value << "\n";
+
 			if(this->IDValueMapping1[iIndex][0].IR.Value == this->IDValueMapping2[iIndex][0].IR.Value)
 			{
 				ValueScoreMapping[pInst] = 1;
@@ -1377,21 +1537,25 @@ int CLCAL::CompInstancePair(vector<LogRecord> & InstanceA, vector<LogRecord> & I
 			lValue2 = IDValueMapping2[iIndex][0].IR.Value;
 		}
 
-		if(OnlyControlInLoop(*itSetBegin, pLoop) && OnlyCompWithInteger(*itSetBegin, pLoop))
-		{
-			ValueScoreMapping[*itSetBegin] = min(lValue1, lValue2) * 1.0/max(lValue1, lValue2);
-			continue;
-		}
 
 		if(minLength == 0)
 		{
 			ValueScoreMapping[*itSetBegin] = 0;
+			continue;
+		}
+
+		if(OnlyControlInLoop(*itSetBegin, pLoop) && OnlyCompWithInteger(*itSetBegin, pLoop))
+		{
+			ValueScoreMapping[*itSetBegin] = min(lValue1, lValue2) * 1.0/max(lValue1, lValue2);	
+			continue;
 		}
 
 		if(CompIterativeStart(*itSetBegin, lValue1, lValue2, ValueScoreMapping))
 		{
 			continue;
 		}
+
+		
 
 		ValueScoreMapping[*itSetBegin] = 0;
 	}
@@ -1403,30 +1567,46 @@ int CLCAL::CompInstancePair(vector<LogRecord> & InstanceA, vector<LogRecord> & I
 
 	for(; itScoreMapBegin != itScoreMapEnd; itScoreMapBegin ++ )
 	{
-		itScoreMapBegin->first->dump();
-		errs() << itScoreMapBegin->second << "\n";
+		//itScoreMapBegin->first->dump();
+		//errs() << itScoreMapBegin->second << "\n";
+
 		average += itScoreMapBegin->second;
 	}
+	
+	
+	
 
-	exit(0);
 
-
-	average = average/ValueScoreMapping.size();
-
-	if(minLength < 100 && maxLength/minLength >= 2)
+	if(ValueScoreMapping.size() == 0)
 	{
+		average = 0;
+	}
+	else
+	{
+		average = average/ValueScoreMapping.size();
+	}
+
+	//errs() << "average: " << average << "\n";
+	vecPairRedundancy.push_back(average);
+
+	if( minLength == 0 ||  (minLength < 100 && maxLength/minLength >= 2))
+	{
+		//errs() << "ratio: " << minLength << " " << maxLength << "\n";
 		return 0;
 	}
-	else if(maxLength < 10)
+	else if(maxLength < 100)
 	{
+		//errs() << "maxLength: " << minLength << " " << maxLength << "\n";	
 		return 0;
 	}
-	else if(average > 0.9)
+	else if(average >= 0.9)
 	{
+		//errs() << "average: "<< average << "\n";	
 		return 1;
 	}
 	else
 	{
+		//errs() << "average: "<< average << "\n";	
 		return 0;
 	}
 
@@ -1477,6 +1657,8 @@ bool CLCAL::runOnModule(Module& M)
 		return true;
 	}
 
+	errs() << "enter runOnModule\n";
+
 	vector<vector<LogRecord> > vecLogRecord;
 	ParseTraceFile(vecLogRecord);
 	BuildIDInstMapping(pInnerFunction);
@@ -1485,13 +1667,68 @@ bool CLCAL::runOnModule(Module& M)
 	size_t iIndex = 0;
 	int count = 0;
 
+	errs() << vecLogRecord.size() << "\n";
+
+
 	while(iIndex + 1 < vecLogRecord.size() )
 	{
+		errs() << iIndex << " " << count << "\n";
 		count += CompInstancePair(vecLogRecord[iIndex], vecLogRecord[iIndex+1]);
 		iIndex += 2;
+		
 	}
 
+
+	set<Value *>::iterator itSetValBegin = this->setAppearedValue.begin();
+	set<Value *>::iterator itSetValEnd   = this->setAppearedValue.end();
+
+	int iInsideInst = 0;
+	int iOutsideValue = 0;
+
+	for(; itSetValBegin != itSetValEnd; itSetValBegin ++ )
+	{
+		if(Instruction * pInst = dyn_cast<Instruction>(*itSetValBegin))
+		{
+			if(pInst->getParent()->getParent() != pInnerFunction)
+			{
+				iInsideInst++;
+			}
+			else if(pLoop->contains(pInst->getParent()))
+			{
+				iInsideInst ++;
+			}
+			else
+			{
+				iOutsideValue ++;
+			}
+		}
+		else if(isa<Argument>(*itSetValBegin) )
+		{
+			iOutsideValue ++;
+		}
+	}
+
+
 	errs() << "Redundancy: " << count << " / " << vecLogRecord.size()/2 << " == " << (count * 1.0 / (vecLogRecord.size()/2)) << "\n";
+
+	errs() << "Instruction inside the loop: " << iInsideInst << "\n";
+	errs() << "Value outside the loop: " << iOutsideValue << "\n";
+
+	if(this->vecPairRedundancy.size() > 0)
+	{
+
+		double dTotal = 0;
+
+		for(unsigned i =0; i < this->vecPairRedundancy.size(); i ++)
+		{
+			dTotal += this->vecPairRedundancy[i];
+		}
+
+		errs() << "average redundancy: " << dTotal/this->vecPairRedundancy.size() << "\n";
+
+	}
+
+
 
 	FreeMemBuffer();
 

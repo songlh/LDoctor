@@ -177,6 +177,8 @@ void FFRInstrument::SetupStruct(Module * pModule)
 	{	
 		this->struct_stLogRecord->setBody(struct_fields, false);
 	}
+
+	this->PT_struct_stLogRecord = PointerType::get(this->struct_stLogRecord, 0);
 }
 
 void FFRInstrument::SetupConstants(Module * pModule)
@@ -365,6 +367,100 @@ void FFRInstrument::SetupGlobals(Module * pModule)
 	
 }
 
+
+void FFRInstrument::InlineHookPara(Argument * pArg, Instruction * II, BinaryOperator * pAdd, int FunctionID)
+{
+	LoadInst * pLoadPointer = new LoadInst(this->pcBuffer_CPI, "", false, II);
+	pLoadPointer->setAlignment(8);
+	LoadInst * pLoadIndex   = new LoadInst(this->iBufferIndex_CPI, "", false, II);
+	pLoadIndex->setAlignment(8);
+
+	GetElementPtrInst* getElementPtr = GetElementPtrInst::Create(pLoadPointer, pLoadIndex, "", II);
+	CastInst * pStoreAddress = new BitCastInst(getElementPtr, this->PT_struct_stLogRecord, "", II);
+
+	StoreInst * pStore;
+	//Constant * const_ptr;
+	CastInst * pCast;
+
+	vector<Value *> vecIndex;
+	vecIndex.push_back(this->ConstantInt0);
+	vecIndex.push_back(this->ConstantInt0);
+	Instruction * const_ptr = GetElementPtrInst::Create(pStoreAddress, vecIndex, "", II);
+	pStore = new StoreInst(this->ConstantInt1, const_ptr, false, II);
+	pStore->setAlignment(4);
+
+	vecIndex.clear();
+	vecIndex.push_back(this->ConstantInt0);
+	vecIndex.push_back(this->ConstantInt1);
+	Instruction * ParaRecord_ptr = GetElementPtrInst::Create(pStoreAddress, vecIndex, "", II);
+	PointerType * stParaRecord_PT = PointerType::get(this->struct_stParaRecord, 0);
+	CastInst * pParaRecord = new BitCastInst(ParaRecord_ptr, stParaRecord_PT, "", II);
+
+	int iID = 0;
+
+	iID = FunctionID * 10 + pArg->getArgNo();
+	ConstantInt * pID = ConstantInt::get(this->IntType, iID, false);
+
+	vecIndex.clear();
+	vecIndex.push_back(this->ConstantInt0);
+	vecIndex.push_back(this->ConstantInt1);
+	const_ptr = GetElementPtrInst::Create(pParaRecord, vecIndex, "", II);
+	pStore = new StoreInst(pID, const_ptr, false, II);
+	pStore->setAlignment(4);
+
+	if(IntegerType * pIntType = dyn_cast<IntegerType>(pArg->getType()))
+	{
+		if(pIntType->getBitWidth() == 64)
+		{
+			vecIndex.clear();
+			vecIndex.push_back(this->ConstantInt0);
+			vecIndex.push_back(this->ConstantInt2);
+			const_ptr = GetElementPtrInst::Create(pParaRecord, vecIndex, "", II);
+			pStore = new StoreInst(pArg, const_ptr, false, II);
+			pStore->setAlignment(8);
+		}
+		else
+		{
+			pCast = CastInst::CreateIntegerCast(pArg, this->LongType, true, "", II);
+			vecIndex.clear();
+			vecIndex.push_back(this->ConstantInt0);
+			vecIndex.push_back(this->ConstantInt2);
+			const_ptr = GetElementPtrInst::Create(pParaRecord, vecIndex, "", II);
+			pStore = new StoreInst(pCast, const_ptr, false, II);
+			pStore->setAlignment(8);
+		}
+	}
+	else if(isa<PointerType>(pArg->getType()))
+	{
+		pCast = new PtrToIntInst(pArg, this->LongType, "", II);
+		vecIndex.clear();
+		vecIndex.push_back(this->ConstantInt0);
+		vecIndex.push_back(this->ConstantInt2);
+		const_ptr = GetElementPtrInst::Create(pParaRecord, vecIndex, "", II);
+		pStore = new StoreInst(pCast, const_ptr, false, II);
+		pStore->setAlignment(8);
+	}
+	else
+	{
+		assert(0);
+	}
+
+	vecIndex.clear();
+	vecIndex.push_back(this->ConstantInt0);
+	vecIndex.push_back(this->ConstantInt0);
+	const_ptr = GetElementPtrInst::Create(pParaRecord, vecIndex, "", II);
+	pStore = new StoreInst(pAdd, const_ptr, false, II);
+	pStore->setAlignment(8);
+
+	LoadInst * pLoadRecordSize = new LoadInst(this->iRecordSize_CPI, "", false, II);
+	pLoadRecordSize->setAlignment(8);
+
+	pAdd = BinaryOperator::Create(Instruction::Add, pLoadIndex, pLoadRecordSize, "", II);
+	pStore = new StoreInst(pAdd, this->iBufferIndex_CPI, false, II);
+	pStore->setAlignment(8);
+}
+
+/*
 void FFRInstrument::InlineHookPara(Argument * pArg, Instruction * II, BinaryOperator * pAdd, int FunctionID)
 {
 	StoreInst * pStore;
@@ -472,7 +568,107 @@ void FFRInstrument::InlineHookPara(Argument * pArg, Instruction * II, BinaryOper
 	pStore->setAlignment(8);
 
 }
+*/
 
+
+void FFRInstrument::InlineHookLoad(LoadInst * pLoad, BinaryOperator * pAdd, int InstID)
+{	
+	BasicBlock::iterator II = pLoad;
+	II ++;
+
+	LoadInst * pLoadPointer = new LoadInst(this->pcBuffer_CPI, "", false, II);
+	pLoadPointer->setAlignment(8);
+	LoadInst * pLoadIndex   = new LoadInst(this->iBufferIndex_CPI, "", false, II);
+	pLoadIndex->setAlignment(8);
+
+	GetElementPtrInst* getElementPtr = GetElementPtrInst::Create(pLoadPointer, pLoadIndex, "", II);
+	CastInst * pStoreAddress = new BitCastInst(getElementPtr, this->PT_struct_stLogRecord, "", II);
+
+	Instruction * const_ptr;
+	StoreInst * pStore;
+	CastInst * pCast1 = new PtrToIntInst(pLoad->getPointerOperand(), this->LongType, "", II);
+	CastInst * pCast2 = NULL;
+	vector<Value *> vecIndex;
+
+	vecIndex.push_back(this->ConstantInt0);
+	vecIndex.push_back(this->ConstantInt1);
+	vecIndex.push_back(this->ConstantInt0);
+	vecIndex.push_back(this->ConstantInt3);
+
+	const_ptr = GetElementPtrInst::Create(pStoreAddress, vecIndex, "", II);
+
+	if(IntegerType * pIntType = dyn_cast<IntegerType>(pLoad->getType()))
+	{
+		if(pIntType->getBitWidth() != 64)
+		{
+			pCast2 = CastInst::CreateIntegerCast(pLoad, this->LongType, true, "", II);
+			pStore = new StoreInst(pCast2, const_ptr, false, II);
+			pStore->setAlignment(8);
+		}
+		else
+		{
+			pStore = new StoreInst(pLoad, const_ptr, false, II);
+			pStore->setAlignment(8);
+		}
+	}
+	else if(isa<PointerType>(pLoad->getType()))
+	{
+		pCast2 = new PtrToIntInst(pLoad, this->LongType, "", II);
+		pStore = new StoreInst(pCast2, const_ptr, false, II);
+		pStore->setAlignment(8);
+	}
+	else
+	{
+		assert(0);
+	}
+
+
+	vecIndex.clear();
+	vecIndex.push_back(this->ConstantInt0);
+	vecIndex.push_back(this->ConstantInt0);
+	const_ptr = GetElementPtrInst::Create(pStoreAddress, vecIndex, "", II);
+	pStore = new StoreInst(this->ConstantInt0, const_ptr, false, II);
+	pStore->setAlignment(4);
+
+	vecIndex.clear();
+	vecIndex.push_back(this->ConstantInt0);
+	vecIndex.push_back(this->ConstantInt1);
+	vecIndex.push_back(this->ConstantInt0);
+	vecIndex.push_back(this->ConstantInt0);
+	const_ptr = GetElementPtrInst::Create(pStoreAddress, vecIndex, "", II);
+	pStore = new StoreInst(pAdd, const_ptr, false, II);
+	pStore->setAlignment(8);
+
+	vecIndex.clear();
+	vecIndex.push_back(this->ConstantInt0);
+	vecIndex.push_back(this->ConstantInt1);
+	vecIndex.push_back(this->ConstantInt0);
+	vecIndex.push_back(this->ConstantInt2);
+	const_ptr = GetElementPtrInst::Create(pStoreAddress, vecIndex, "", II);
+	pStore = new StoreInst(pCast1, const_ptr, false, II);
+	pStore->setAlignment(8);
+
+	ConstantInt *CI = ConstantInt::get(this->IntType, InstID, false);
+
+	vecIndex.clear();
+	vecIndex.push_back(this->ConstantInt0);
+	vecIndex.push_back(this->ConstantInt1);
+	vecIndex.push_back(this->ConstantInt0);
+	vecIndex.push_back(this->ConstantInt1);
+	const_ptr = GetElementPtrInst::Create(pStoreAddress, vecIndex, "", II);
+	pStore = new StoreInst(CI, const_ptr, false, II);
+	pStore->setAlignment(4);
+
+	LoadInst * pLoadRecordSize = new LoadInst(this->iRecordSize_CPI, "", false, II);
+	pLoadRecordSize->setAlignment(8);
+
+	pAdd = BinaryOperator::Create(Instruction::Add, pLoadIndex, pLoadRecordSize, "", II);
+	pStore = new StoreInst(pAdd, this->iBufferIndex_CPI, false, II);
+	pStore->setAlignment(8);
+
+}
+
+/*
 void FFRInstrument::InlineHookLoad(LoadInst * pLoad, BinaryOperator * pAdd, int InstID)
 {
 	BasicBlock::iterator II = pLoad;
@@ -579,9 +775,94 @@ void FFRInstrument::InlineHookLoad(LoadInst * pLoad, BinaryOperator * pAdd, int 
 	pAdd = BinaryOperator::Create(Instruction::Add, pLoadIndex, pLoadRecordSize, "", II);
 	pStore = new StoreInst(pAdd, this->iBufferIndex_CPI, false, II);
 	pStore->setAlignment(8);
+}
+*/
+
+
+void FFRInstrument::InlineHookInst(Instruction * pI, Instruction * II, BinaryOperator * pAdd)
+{
+	MDNode *Node = pI->getMetadata("ins_id");
+	assert(Node);
+	assert(Node->getNumOperands() == 1);
+	ConstantInt *CI = dyn_cast<ConstantInt>(Node->getOperand(0));
+	CastInst * pCast;
+
+	LoadInst * pLoadPointer = new LoadInst(this->pcBuffer_CPI, "", false, II);
+	pLoadPointer->setAlignment(8);
+	LoadInst * pLoadIndex   = new LoadInst(this->iBufferIndex_CPI, "", false, II);
+	pLoadIndex->setAlignment(8);
+
+	GetElementPtrInst* getElementPtr = GetElementPtrInst::Create(pLoadPointer, pLoadIndex, "", II);
+	CastInst * pStoreAddress = new BitCastInst(getElementPtr, this->PT_struct_stLogRecord, "", II);
+
+	vector<Value *> vecIndex;
+	vecIndex.push_back(this->ConstantInt0);
+	vecIndex.push_back(this->ConstantInt0);
+	Instruction * const_ptr = GetElementPtrInst::Create(pStoreAddress, vecIndex, "", II);
+	StoreInst * pStore = new StoreInst(this->ConstantInt3, const_ptr, false, II);
+	pStore->setAlignment(4);
+
+	vecIndex.clear();
+	vecIndex.push_back(this->ConstantInt0);
+	vecIndex.push_back(this->ConstantInt1);
+	Instruction * InstRecord_ptr = GetElementPtrInst::Create(pStoreAddress, vecIndex, "", II);
+	PointerType * stInstRecord_PT = PointerType::get( this->struct_stInstRecord, 0);
+	CastInst * pInstRecord = new BitCastInst(InstRecord_ptr, stInstRecord_PT, "", II);
+
+	vecIndex.clear();
+	vecIndex.push_back(this->ConstantInt0);
+	vecIndex.push_back(this->ConstantInt0);
+	const_ptr = GetElementPtrInst::Create(pInstRecord, vecIndex, "", II);
+	pStore = new StoreInst(pAdd, const_ptr, false, II);
+	pStore->setAlignment(8);
+
+	vecIndex.clear();
+	vecIndex.push_back(this->ConstantInt0);
+	vecIndex.push_back(this->ConstantInt1);
+	const_ptr = GetElementPtrInst::Create(pInstRecord, vecIndex, "", II);
+	pStore = new StoreInst(CI, const_ptr, false, II);
+	pStore->setAlignment(4);
+
+	vecIndex.clear();
+	vecIndex.push_back(this->ConstantInt0);
+	vecIndex.push_back(this->ConstantInt2);
+	const_ptr = GetElementPtrInst::Create(pInstRecord, vecIndex, "", II);
+
+	if(IntegerType * pIntType = dyn_cast<IntegerType>(pI->getType()))
+	{
+		if(pIntType->getBitWidth() != 64)
+		{
+			pCast = CastInst::CreateIntegerCast(pI, this->LongType, true, "", II);
+			pStore = new StoreInst(pCast, const_ptr, false, II);
+		}
+		else
+		{
+			pStore = new StoreInst(pI, const_ptr, false, II);
+		}
+	}
+	else if(isa<PointerType>(pI->getType()))
+	{
+		pCast = new PtrToIntInst(pI, this->LongType, "", II);
+		pStore = new StoreInst(pCast, const_ptr, false, II);
+	}
+	else
+	{
+		assert(0);
+	}
+	
+	pStore->setAlignment(8);
+
+	LoadInst * pLoadRecordSize = new LoadInst(this->iRecordSize_CPI, "", false, II);
+	pLoadRecordSize->setAlignment(8);
+
+	pAdd = BinaryOperator::Create(Instruction::Add, pLoadIndex, pLoadRecordSize, "", II);
+	pStore = new StoreInst(pAdd, this->iBufferIndex_CPI, false, II);
+	pStore->setAlignment(8);
 
 }
 
+
+/*
 void FFRInstrument::InlineHookInst(Instruction * pI, Instruction * II, BinaryOperator * pAdd)
 {
 	MDNode *Node = pI->getMetadata("ins_id");
@@ -675,7 +956,87 @@ void FFRInstrument::InlineHookInst(Instruction * pI, Instruction * II, BinaryOpe
 	pStore = new StoreInst(pAdd, this->iBufferIndex_CPI, false, II);
 	pStore->setAlignment(8);
 }
+*/
 
+
+void FFRInstrument::InlineHookMem(MemTransferInst * pMem, Instruction * II, BinaryOperator * pAdd)
+{
+	MDNode *Node = pMem->getMetadata("ins_id");
+	assert(Node);
+	assert(Node->getNumOperands() == 1);
+	ConstantInt *CI = dyn_cast<ConstantInt>(Node->getOperand(0));
+
+	LoadInst * pLoadPointer = new LoadInst(this->pcBuffer_CPI, "", false, II);
+	pLoadPointer->setAlignment(8);
+	LoadInst * pLoadIndex   = new LoadInst(this->iBufferIndex_CPI, "", false, II);
+	pLoadIndex->setAlignment(8);
+
+	GetElementPtrInst* getElementPtr = GetElementPtrInst::Create(pLoadPointer, pLoadIndex, "", II);
+	CastInst * pStoreAddress = new BitCastInst(getElementPtr, this->PT_struct_stLogRecord, "", II);
+
+	vector<Value *> vecIndex;
+	vecIndex.push_back(this->ConstantInt0);
+	vecIndex.push_back(this->ConstantInt0);
+	Instruction * const_ptr = GetElementPtrInst::Create(pStoreAddress, vecIndex, "", II);
+	StoreInst * pStore = new StoreInst(this->ConstantInt4, const_ptr, false, II);
+	pStore->setAlignment(4);
+
+	vecIndex.clear();
+	vecIndex.push_back(this->ConstantInt0);
+	vecIndex.push_back(this->ConstantInt1);
+	Instruction * MemRecord_ptr = GetElementPtrInst::Create(pStoreAddress, vecIndex, "", II);
+	PointerType * stMemRecord_PT = PointerType::get( this->struct_stMemRecord, 0);
+	CastInst * pMemRecord = new BitCastInst(MemRecord_ptr, stMemRecord_PT, "", II);
+
+	vecIndex.clear();
+	vecIndex.push_back(this->ConstantInt0);
+	vecIndex.push_back(this->ConstantInt1);
+	const_ptr = GetElementPtrInst::Create(pMemRecord, vecIndex, "", II);
+	pStore = new StoreInst(CI, const_ptr, false, II);
+	pStore->setAlignment(4);
+
+	vecIndex.clear();
+	vecIndex.push_back(this->ConstantInt0);
+	vecIndex.push_back(this->ConstantInt0);
+	const_ptr = GetElementPtrInst::Create(pMemRecord, vecIndex, "", II);
+	pStore = new StoreInst(pAdd, const_ptr, false, II);
+	pStore->setAlignment(8);
+
+	vecIndex.clear();
+	vecIndex.push_back(this->ConstantInt0);
+	vecIndex.push_back(this->ConstantInt2);
+	const_ptr = GetElementPtrInst::Create(pMemRecord, vecIndex, "", II);
+	Value * pValueLength = pMem->getLength();
+	pStore = new StoreInst(pValueLength, const_ptr, false, II);
+	pStore->setAlignment(8);
+
+	LoadInst * pLoadRecordSize = new LoadInst(this->iRecordSize_CPI, "", false, II);
+	pLoadRecordSize->setAlignment(8);
+
+	pAdd = BinaryOperator::Create(Instruction::Add, pLoadIndex, pLoadRecordSize, "", II);
+
+	getElementPtr = GetElementPtrInst::Create(pLoadPointer, pAdd, "", II);
+	
+	vector<Value *> vecParam;
+	vecParam.push_back(getElementPtr);
+	vecParam.push_back(pMem->getRawSource());
+	vecParam.push_back(pValueLength);
+	vecParam.push_back(this->ConstantInt1);
+	vecParam.push_back(this->ConstantIntFalse);
+
+	CallInst * pCall = CallInst::Create(this->func_llvm_memcpy, vecParam, "", II);
+	pCall->setCallingConv(CallingConv::C);
+	pCall->setTailCall(false);
+	AttributeSet AS;
+	pCall->setAttributes(AS);
+
+	pAdd = BinaryOperator::Create(Instruction::Add, pAdd, pValueLength, "", II );
+	pStore = new StoreInst(pAdd, this->iBufferIndex_CPI, false, II);
+	pStore->setAlignment(8);
+
+}
+
+/*
 void FFRInstrument::InlineHookMem(MemTransferInst * pMem, Instruction * II, BinaryOperator * pAdd)
 {
 	MDNode *Node = pMem->getMetadata("ins_id");
@@ -766,6 +1127,7 @@ void FFRInstrument::InlineHookMem(MemTransferInst * pMem, Instruction * II, Bina
 
 }
 
+*/
 
 void FFRInstrument::InstrumentMain(Module * pModule)
 {

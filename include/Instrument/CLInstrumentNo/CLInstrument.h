@@ -1,5 +1,5 @@
-#ifndef _H_SONGLH_CLINSTRUMENT
-#define _H_SONGLH_CLINSTRUMENT
+#ifndef _H_SONGLH_CLINSTRUMENTNO
+#define _H_SONGLH_CLINSTRUMENTNO
 
 #include "llvm/Pass.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
@@ -31,7 +31,7 @@ struct CrossLoopInstrument : public ModulePass
 
 	BasicBlock * SearchPostDominatorForLoop(Loop * pLoop,  PostDominatorTree * pPDT );
 	void CreateIfElseIfBlock(Loop * pInnerLoop, vector<BasicBlock *> & vecCondition);
-	void CloneInnerLoop(Loop * pLoop, vector<BasicBlock *> & vecAdd, ValueToValueMapTy & VMap);
+	void CloneInnerLoop(Loop * pLoop,  ValueToValueMapTy & VMap);
 	
 	void CloneFunctionCalled(set<BasicBlock *> & setBlocksInLoop, ValueToValueMapTy & VCalleeMap, map<Function *, set<Instruction *> > & FuncCallSiteMapping);
 
@@ -39,7 +39,7 @@ struct CrossLoopInstrument : public ModulePass
 	void RemapInstruction(Instruction *I, ValueToValueMapTy &VMap);
 
 	void CollectInstrumentedInst(set<int> & setIndex, Loop * pLoop, vector<LoadInst *> & vecLoad, vector<Instruction *> & vecIn, vector<Instruction *> & vecOut, vector<MemTransferInst *> & vecMem );
-	void AddHooksToInnerLoop(vector<BasicBlock *> & vecAdd, ValueToValueMapTy & VMap, vector<LoadInst *> & vecLoad, vector<Instruction *> & vecIn, vector<Instruction *> & vecOut, vector<MemTransferInst *> & vecMem);
+	void AddHooksToInnerLoop(Loop * pLoop, ValueToValueMapTy & VMap, vector<LoadInst *> & vecLoad, vector<Instruction *> & vecIn, vector<Instruction *> & vecOut, vector<MemTransferInst *> & vecMem);
 
 	void InstrumentInnerLoop(Loop * pLoop, PostDominatorTree * PDT);
 	void InstrumentOuterLoop(Loop * pLoop);

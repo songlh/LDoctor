@@ -1,7 +1,7 @@
 
 #include "llvm-Commons/Search/Search.h"
 #include "llvm-Commons/Loop/Loop.h"
-#include "Instrument/WLInstrument/WLInstrument.h"
+#include "Instrument/WLLSInstrument/WLLSInstrument.h"
 
 
 #include "llvm/Analysis/LoopInfo.h"
@@ -44,15 +44,15 @@ static cl::opt<unsigned> uType( "noType",
 					cl::value_desc("uType") );
 
 
-static RegisterPass<WorklessInstrument> X(
+static RegisterPass<WorklessLSInstrument> X(
 		"workless-instrument",
 		"workless instrument",
 		true,
 		true);
 
-char WorklessInstrument::ID = 0;
+char WorklessLSInstrument::ID = 0;
 
-void WorklessInstrument::getAnalysisUsage(AnalysisUsage &AU) const 
+void WorklessLSInstrument::getAnalysisUsage(AnalysisUsage &AU) const 
 {
 	//AU.setPreservesAll();
 	AU.addRequired<PostDominatorTree>();
@@ -61,7 +61,7 @@ void WorklessInstrument::getAnalysisUsage(AnalysisUsage &AU) const
 	
 }
 
-WorklessInstrument::WorklessInstrument(): ModulePass(ID) 
+WorklessLSInstrument::WorklessLSInstrument(): ModulePass(ID) 
 {
 	PassRegistry &Registry = *PassRegistry::getPassRegistry();
 	initializeDataLayoutPass(Registry);
@@ -70,13 +70,13 @@ WorklessInstrument::WorklessInstrument(): ModulePass(ID)
 	//initializePromotePassPass(Registry);
 }
 
-void WorklessInstrument::print(raw_ostream &O, const Module *M) const
+void WorklessLSInstrument::print(raw_ostream &O, const Module *M) const
 {
 	return;
 }
 
 
-void WorklessInstrument::SetupTypes(Module * pModule)
+void WorklessLSInstrument::SetupTypes(Module * pModule)
 {
 	this->VoidType = Type::getVoidTy(pModule->getContext());
 	this->LongType = IntegerType::get(pModule->getContext(), 64); 
@@ -89,7 +89,7 @@ void WorklessInstrument::SetupTypes(Module * pModule)
 
 }
 
-void WorklessInstrument::SetupConstants(Module * pModule)
+void WorklessLSInstrument::SetupConstants(Module * pModule)
 {
 	this->ConstantInt0 = ConstantInt::get(pModule->getContext(), APInt(32, StringRef("0"), 10));
 	this->ConstantInt1 = ConstantInt::get(pModule->getContext(), APInt(32, StringRef("1"), 10));
@@ -116,7 +116,7 @@ void WorklessInstrument::SetupConstants(Module * pModule)
 	
 }
 
-void WorklessInstrument::SetupHooks(Module * pModule)
+void WorklessLSInstrument::SetupHooks(Module * pModule)
 {
 	assert(pModule->getGlobalVariable("numIterations")==NULL);
     assert(pModule->getGlobalVariable("numInstances")==NULL);
@@ -160,7 +160,7 @@ void WorklessInstrument::SetupHooks(Module * pModule)
 }
 
 
-void WorklessInstrument::InstrumentWorkless0Star1(Module * pModule, Loop * pLoop)
+void WorklessLSInstrument::InstrumentWorkless0Star1(Module * pModule, Loop * pLoop)
 {
 	Function * pMain = NULL;
 
@@ -173,8 +173,6 @@ void WorklessInstrument::InstrumentWorkless0Star1(Module * pModule, Loop * pLoop
 		pMain = pModule->getFunction("main");
 	}
 
-	
-
 	LoadInst * pLoad;
 	BinaryOperator* pAdd = NULL;
 	StoreInst * pStore = NULL;
@@ -185,7 +183,6 @@ void WorklessInstrument::InstrumentWorkless0Star1(Module * pModule, Loop * pLoop
 		{
 			if (isa<ReturnInst>(Ins) || isa<ResumeInst>(Ins)) 
 			{
-			
 				vector<Value*> vecParams;
 				pLoad = new LoadInst(numIterations, "", false, Ins); 
 				pLoad->setAlignment(8); 
@@ -233,37 +230,7 @@ void WorklessInstrument::InstrumentWorkless0Star1(Module * pModule, Loop * pLoop
 	BasicBlock * pPreHeader = pLoop->getLoopPreheader();
 	
 	assert(pPreHeader != NULL);
-	/*
-	if(pPreHeader == NULL)
-	{
-		SmallVector<BasicBlock*, 8> OutsideBlocks;
-		BasicBlock * pHeader = pLoop->getHeader();
-		for(pred_iterator PI = pred_begin(pHeader), PE = pred_end(pHeader); PI != PE; ++PI)
-		{
-			BasicBlock *P = *PI;
-			if(!pLoop->contains(P))
-			{
-				if(isa<IndirectBrInst>(P->getTerminator()))
-				{
-					errs() << "IndirectBrInst toward loop header\n";
-					exit(0);
-				}
 
-				OutsideBlocks.push_back(P);
-			}
-		}
-
-		if(!pHeader->isLandingPad())
-		{
-			pPreHeader = SplitBlockPredecessors(pHeader, OutsideBlocks, ".workless", this);
-		}
-		else
-		{
-			errs() << "Header isLandingPad!\n" ;
-			exit(0);
-		}
-	}
-	*/
 
 	pLoad = new LoadInst(this->numInstances, "", false, pPreHeader->getTerminator());
 	pLoad->setAlignment(8);
@@ -271,111 +238,20 @@ void WorklessInstrument::InstrumentWorkless0Star1(Module * pModule, Loop * pLoop
 	pStore = new StoreInst(pAdd, this->numInstances, false, pPreHeader->getTerminator());
 	pStore->setAlignment(8);
 
-	pLoad = new LoadInst(this->numIterations, "", false, pPreHeader->getTerminator());
-	pLoad->setAlignment(8);
-
-	BasicBlock * pHeader = pLoop->getHeader();
-
-	set<BasicBlock *> setPredBlocks;
-
-	for(pred_iterator PI = pred_begin(pHeader), E = pred_end(pHeader); PI != E; ++PI)
-	{
-		setPredBlocks.insert(*PI);
-	}
-
-	PHINode * pNew = PHINode::Create(pLoad->getType(), setPredBlocks.size(), "numIterations", pHeader->getFirstInsertionPt());
-	pAdd = BinaryOperator::Create(Instruction::Add, pNew, this->ConstantLong1, "add", pHeader->getFirstInsertionPt());
-
-	set<BasicBlock *>::iterator itSetBegin = setPredBlocks.begin();
-	set<BasicBlock *>::iterator itSetEnd   = setPredBlocks.end();
-
-	for(; itSetBegin != itSetEnd; itSetBegin ++ )
-	{
-		if((*itSetBegin) == pPreHeader)
-		{
-			pNew->addIncoming(pLoad, pPreHeader);
-		}
-		else
-		{
-			pNew->addIncoming(pAdd, *itSetBegin);
-		}
-	}
-
-	set<BasicBlock *> setExitBlock;
-	CollectExitBlock(pLoop, setExitBlock);
-
-	itSetBegin = setExitBlock.begin();
-	itSetEnd   = setExitBlock.end();
-
-	for(; itSetBegin != itSetEnd; itSetBegin ++ )
-	{
-		pStore = new StoreInst(pAdd, this->numIterations, false, (*itSetBegin)->getFirstInsertionPt());
-		pStore->setAlignment(8);
-	}
-	
-/*	
 	BasicBlock * pHeader = pLoop->getHeader();
 	pLoad = new LoadInst(this->numIterations, "", false, pHeader->getTerminator());
 	pLoad->setAlignment(8);
 	pAdd = BinaryOperator::Create(Instruction::Add, pLoad, this->ConstantLong1, "add", pHeader->getTerminator());
 	pStore = new StoreInst(pAdd, this->numIterations, false, pHeader->getTerminator());
 	pStore->setAlignment(8);
-*/
 
-	//pLoop->getHeader()->getParent()->dump();
+
+	
 }
 
-//void WorklessInstrument::InstrumentWorkless0Star1OPT(Module * pModule, Loop * pLoop)
-//{
-	/*
-	Function * 
 
 
-	Function * pMain = NULL;
-
-	if(strMainName != "" )
-	{
-		pMain = pModule->getFunction(strMainName.c_str());
-	}
-	else
-	{
-		pMain = pModule->getFunction("main");
-	}
-
-
-	LoadInst * pLoad;
-	BinaryOperator* pAdd = NULL;
-	StoreInst * pStore = NULL;
-
-	for (Function::iterator BB = pMain->begin(); BB != pMain->end(); ++BB) 
-	{
-		for (BasicBlock::iterator Ins = BB->begin(); Ins != BB->end(); ++Ins) 
-		{
-			if (isa<ReturnInst>(Ins) || isa<ResumeInst>(Ins)) 
-			{
-				vector<Value*> vecParams;
-				pLoad = new LoadInst(numIterations, "", false, Ins); 
-				pLoad->setAlignment(8); 
-				vecParams.push_back(pLoad);
-				pLoad = new LoadInst(numInstances, "", false, Ins); 
-				pLoad->setAlignment(8);
-				vecParams.push_back(pLoad);
-				
-				CallInst* pCall = CallInst::Create(this->PrintLoopInfo, vecParams, "", Ins);
-				pCall->setCallingConv(CallingConv::C);
-				pCall->setTailCall(false);
-				AttributeSet aSet;
-				pCall->setAttributes(aSet);
-			}
-		}
-	}
-	*/
-
-//}
-
-
-
-void WorklessInstrument::InstrumentWorkless0Or1Star(Module * pModule, Loop * pLoop, set<string> & setWorkingBlocks)
+void WorklessLSInstrument::InstrumentWorkless0Or1Star(Module * pModule, Loop * pLoop, set<string> & setWorkingBlocks)
 {
 	LoadInst * pLoad0 = NULL;
 	LoadInst * pLoad1 = NULL;
@@ -472,13 +348,8 @@ void WorklessInstrument::InstrumentWorkless0Or1Star(Module * pModule, Loop * pLo
 		}
 	}
 
-	Function * pFunction = pLoop->getHeader()->getParent();
-	BasicBlock * pEntry = &(pFunction->getEntryBlock());
-
-	AllocaInst * pAlloc = new AllocaInst(this->LongType, "bWorkingIteration.local", pEntry->getFirstInsertionPt());
-
 	vector<BasicBlock *> vecWorkingBlock;
-	
+	Function * pFunction = pLoop->getHeader()->getParent();
 	for(Function::iterator BB = pFunction->begin(); BB != pFunction->end(); ++ BB)
 	{
 		if(setWorkingBlocks.find(BB->getName()) != setWorkingBlocks.end() )
@@ -492,104 +363,45 @@ void WorklessInstrument::InstrumentWorkless0Or1Star(Module * pModule, Loop * pLo
 
 	for(; itVecBegin != itVecEnd; itVecBegin++ )
 	{
-		pStore = new StoreInst(this->ConstantLong1, pAlloc, false, (*itVecBegin)->getFirstInsertionPt());
-		//pStore->setAlignment(8);
+		pStore = new StoreInst(this->ConstantLong1, this->bWorkingIteration, false, (*itVecBegin)->getTerminator());
+		pStore->setAlignment(8);
 	}
 
 	BasicBlock * pPreHeader = pLoop->getLoopPreheader();
+	assert(pPreHeader != NULL);
 
 	pLoad0 = new LoadInst(this->numInstances, "", false, pPreHeader->getTerminator());
 	pLoad0->setAlignment(8);
 	pAdd = BinaryOperator::Create(Instruction::Add, pLoad0, this->ConstantLong1, "add", pPreHeader->getTerminator());
 	pStore = new StoreInst(pAdd, this->numInstances, false, pPreHeader->getTerminator());
 	pStore->setAlignment(8);
-	pStore = new StoreInst(this->ConstantLong0, pAlloc, false, pPreHeader->getTerminator());
-	//pStore->setAlignment(8);
+	pStore = new StoreInst(this->ConstantLong0, this->bWorkingIteration, false, pPreHeader->getTerminator());
+	pStore->setAlignment(8);
 
-	pLoad0 = new LoadInst(this->numIterations, "", false, pPreHeader->getTerminator());
-	pLoad0->setAlignment(8);
-
-	pLoad1 = new LoadInst(this->numWorkingIterations, "", false, pPreHeader->getTerminator());
-	pLoad1->setAlignment(8);  
 
 	BasicBlock * pHeader = pLoop->getHeader();
+	pLoad0 = new LoadInst(this->numIterations, "", false, pHeader->getTerminator());
+	pLoad0->setAlignment(8);
+	pAdd = BinaryOperator::Create(Instruction::Add, pLoad0, this->ConstantLong1, "add", pHeader->getTerminator());
+	pStore = new StoreInst(pAdd, this->numIterations, false, pHeader->getTerminator());
+	pStore->setAlignment(8);
 
-	set<BasicBlock *> setPredBlocks;
+	pLoad0 = new LoadInst(this->bWorkingIteration, "", false, pHeader->getTerminator() );
+	pLoad0->setAlignment(8);
 
-	for(pred_iterator PI = pred_begin(pHeader), E = pred_end(pHeader); PI != E; ++PI)
-	{
-		setPredBlocks.insert(*PI);
-	}
+	pLoad1 = new LoadInst(this->numWorkingIterations, "", false, pHeader->getTerminator());
+	pLoad1->setAlignment(8);  
+	pAdd = BinaryOperator::Create(Instruction::Add, pLoad0, pLoad1, "add", pHeader->getTerminator());
+	pStore = new StoreInst(pAdd, this->numWorkingIterations, false, pHeader->getTerminator());
+	pStore->setAlignment(8);
 
-	BasicBlock::iterator itInsert = pHeader->getFirstInsertionPt();
-
-	PHINode * pNewIterations = PHINode::Create(pLoad0->getType(), setPredBlocks.size(), "numIterations.2", itInsert);
-	PHINode * pNewWorkingIterations = PHINode::Create(pLoad1->getType(), setPredBlocks.size(), "WorkingIterations.2", itInsert);
-
-	BinaryOperator * pIterationAdd = BinaryOperator::Create(Instruction::Add, pNewIterations, this->ConstantLong1, "Iterations.add.2", itInsert);
-
-	set<BasicBlock *>::iterator itSetBegin = setPredBlocks.begin();
-	set<BasicBlock *>::iterator itSetEnd   = setPredBlocks.end();
-
-	for(; itSetBegin != itSetEnd; itSetBegin ++ )
-	{
-		if((*itSetBegin) == pPreHeader)
-		{
-			pNewIterations->addIncoming(pLoad0, pPreHeader);
-		}
-		else
-		{
-			pNewIterations->addIncoming(pIterationAdd, *itSetBegin);
-		}
-	}
-
-	pLoad0 = new LoadInst(pAlloc, "", false, itInsert);
-	BinaryOperator * pWorkingAdd = 	BinaryOperator::Create(Instruction::Add, pNewWorkingIterations, pLoad0, "Working.add.2", itInsert);
-
-	itSetBegin = setPredBlocks.begin();
-	itSetEnd   = setPredBlocks.end();
-
-	for(; itSetBegin != itSetEnd; itSetBegin ++ )
-	{
-		if((*itSetBegin) == pPreHeader)
-		{
-			pNewWorkingIterations->addIncoming(pLoad1, pPreHeader);
-		}
-		else
-		{
-			pNewWorkingIterations->addIncoming(pWorkingAdd, *itSetBegin);
-		}
-	}
-
-	pStore = new StoreInst(this->ConstantLong0, pAlloc, false, itInsert);
-
-	set<BasicBlock *> setExitBlock;
-	CollectExitBlock(pLoop, setExitBlock);
-
-	itSetBegin = setExitBlock.begin();
-	itSetEnd   = setExitBlock.end();
-
-	for(; itSetBegin != itSetEnd; itSetBegin ++ )
-	{
-		pStore = new StoreInst(pIterationAdd, this->numIterations, false, (*itSetBegin)->getFirstInsertionPt());
-		pStore->setAlignment(8);
-
-		pStore = new StoreInst(pWorkingAdd, this->numWorkingIterations, false, (*itSetBegin)->getFirstInsertionPt());
-		pStore->setAlignment(8);
-	}
-
-	//pFunction->dump();
+	pStore = new StoreInst(this->ConstantLong0, this->bWorkingIteration, false, pHeader->getTerminator());
+	pStore->setAlignment(8);
 
 
-	DominatorTree * DT = &(getAnalysis<DominatorTree>(*pFunction));
-	vector<AllocaInst *> vecAlloc;
-	vecAlloc.push_back(pAlloc);
-	PromoteMemToReg(vecAlloc, *DT);
-
-	//pLoop->getHeader()->getParent()->dump();
 }
 
-void WorklessInstrument::ParseWorkingBlocks(set<string> & setWorkingBlocks)
+void WorklessLSInstrument::ParseWorkingBlocks(set<string> & setWorkingBlocks)
 {
 	string line;
 	ifstream ifile(strWorkingBlockFileName.c_str());
@@ -617,7 +429,7 @@ void WorklessInstrument::ParseWorkingBlocks(set<string> & setWorkingBlocks)
 }
 
 
-bool WorklessInstrument::runOnModule(Module& M)
+bool WorklessLSInstrument::runOnModule(Module& M)
 {
 	
 	Function * pFunction = SearchFunctionByName(M, strFileName, strFuncName, uSrcLine);

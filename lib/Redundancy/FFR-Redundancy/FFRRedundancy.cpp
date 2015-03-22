@@ -15,6 +15,10 @@ using namespace std;
 using namespace llvm;
 using namespace llvm_Commons;
 
+int PruneInst = 0;
+int MonitoredInst = 0;
+int MonitoredArg = 0;
+int InstInCallee = 0;
 
 bool OnlyWrite(Argument * pArg)
 {
@@ -258,6 +262,7 @@ void FFRRedundancy::PruneDependenceResult(set<Value *> & setDependingValues, Fun
 			if(setInvariantGV.find(pBase) != setInvariantGV.end() || setArray.find(pBase) != setArray.end())
 			{
 				setTOBERemoved.insert(pLoad);
+				PruneInst++;
 			}
 		}
 		else if(MemTransferInst * pMem = dyn_cast<MemTransferInst>(*itSetValueBegin))
@@ -267,6 +272,7 @@ void FFRRedundancy::PruneDependenceResult(set<Value *> & setDependingValues, Fun
 			if(setInvariantGV.find(pBase) != setInvariantGV.end() || setArray.find(pBase) != setArray.end())
 			{
 				setTOBERemoved.insert(pMem);
+				PruneInst++;
 			}
 		}
 	}
@@ -290,6 +296,7 @@ void FFRRedundancy::PruneArgument(set<Value *> & setDependingValues, Function * 
 		if(isa<PointerType>(argBegin->getType()))
 		{
 			setDependingValues.erase(argBegin);	
+			PruneInst++;
 		}
 	}
 }
@@ -362,6 +369,15 @@ bool FFRRedundancy::runOnModule(Module& M)
 				unsigned int uLineNoForInstruction = Loc.getLineNumber();
 				errs() << "//---"<< sFileNameForInstruction << ": " << uLineNoForInstruction << "\n";
 			}
+
+			if(pInst->getParent()->getParent() == pFunction )
+			{
+				MonitoredInst++;
+			}
+			else
+			{
+				InstInCallee++;
+			}
 		}
 		else if(Argument * pArg = dyn_cast<Argument>(*itSetBegin))
 		{
@@ -376,6 +392,8 @@ bool FFRRedundancy::runOnModule(Module& M)
 			}
 
 			pArg->dump();
+
+			MonitoredArg++;
 		}
 		else
 		{
@@ -387,6 +405,12 @@ bool FFRRedundancy::runOnModule(Module& M)
 			(*itSetBegin)->dump();
 		}
 	}
+
+	errs() << "*********************************\n";
+	errs() << "PruneInst: " << PruneInst << "\n";
+	errs() << "MonitoredInst: " << MonitoredInst << "\n"; 
+	errs() << "MonitoredArg: "  << MonitoredArg << "\n";
+	errs() << "InstInCallee: "  << InstInCallee << "\n";
 
 	return false;
 }

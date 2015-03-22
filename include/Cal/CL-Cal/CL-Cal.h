@@ -140,6 +140,11 @@ private:
 	set<size_t> setLength1;
 	set<size_t> setLength2;
 
+	//debug
+	set<Value *> setAppearedValue;
+
+	vector<double> vecPairRedundancy;
+
 	//not used
 	map<Value *, pair<long, long> > ValueMinMaxMapping;
 	map<Value *, double> ValueMeanMapping;

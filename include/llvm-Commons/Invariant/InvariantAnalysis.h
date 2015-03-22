@@ -37,6 +37,8 @@ bool beLoopInvariant(Instruction *I, Loop * pLoop);
 
 bool beInvariantArray(Loop * pLoop, Value * pValue);
 
+bool beNotLargerConstant(Value * pValue);
+
 }
 
 

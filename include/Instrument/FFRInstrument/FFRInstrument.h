@@ -74,6 +74,8 @@ private:
 	StructType * struct_stLogRecord;
 	StructType * union_anon_CPI;
 
+	PointerType * PT_struct_stLogRecord;
+
 
 
 //constants

@@ -65,6 +65,7 @@ private:
 
 
 private:
+	Module * pM;
 	map<Function *, LibraryFunctionType>  LibraryTypeMapping;
 	set<int> setInstID;
 	vector<pair<Function *, int> > vecParaID;
@@ -110,6 +111,7 @@ private:
 	StructType * struct_stLogRecord;
 	StructType * struct_stMemRecord;
 	StructType * union_anon_CPI;
+	PointerType * PT_struct_stLogRecord;
 
 //Function
 	Function * getenv;

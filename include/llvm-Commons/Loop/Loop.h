@@ -43,6 +43,8 @@ bool OnlyControlInLoop(Value * pValue, Loop * pLoop);
 
 bool OnlyCompWithInteger(Value * pValue, Loop * pLoop);
 
+void CollectExitBlock(Loop * pLoop, set<BasicBlock *> & setExitBlocks);
+
 }
 
 #endif

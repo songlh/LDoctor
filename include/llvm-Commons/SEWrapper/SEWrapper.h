@@ -29,6 +29,8 @@ namespace llvm_Commons
 	int64_t CalculateStride(PHINode * pPHI, Loop * pLoop, ScalarEvolution * SE, DataLayout * DL);
 	int64_t CalculateStride(Value * pValue, Loop * pLoop, ScalarEvolution * SE, DataLayout * DL);
 
+	Value * CalculateLoopTripCounter(Loop * pLoop);
+
 }
 
 

@@ -22,6 +22,7 @@
 #include "llvm/ADT/SetVector.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
+#include "llvm/IR/MDBuilder.h"
 
 
 static RegisterPass<CrossInterationInstrument> X(
@@ -203,6 +204,8 @@ void CrossInterationInstrument::SetupStruct(Module * pModule)
 	{	
 		this->struct_stLogRecord->setBody(struct_fields, false);
 	}
+
+	this->PT_struct_stLogRecord = PointerType::get(this->struct_stLogRecord, 0);
 }
 
 
@@ -375,10 +378,112 @@ void CrossInterationInstrument::SetupGlobals(Module * pModule)
 	vecIndex.push_back(this->ConstantInt0);
 	vecIndex.push_back(this->ConstantInt0);
 	this->Output_Format_String = ConstantExpr::getGetElementPtr(pArrayStr, vecIndex);
-	pArrayStr->setInitializer(ConstArray);
-	
+	pArrayStr->setInitializer(ConstArray);	
 }
 
+
+void CrossInterationInstrument::InlineHookLoad(LoadInst * pLoad, Instruction * II )
+{
+	if(pLoad->getType()->isVectorTy())
+	{
+		return;
+	}
+
+
+	LoadInst * pLoadPointer = new LoadInst(this->pcBuffer_CPI, "", false, II);
+	pLoadPointer->setAlignment(8);
+	LoadInst * pLoadIndex   = new LoadInst(this->iBufferIndex_CPI, "", false, II);
+	pLoadIndex->setAlignment(8);
+
+	GetElementPtrInst* getElementPtr = GetElementPtrInst::Create(pLoadPointer, pLoadIndex, "", II);
+	CastInst * pStoreAddress = new BitCastInst(getElementPtr, this->PT_struct_stLogRecord, "", II);
+
+	Instruction * const_ptr;
+	StoreInst * pStore;
+	CastInst * pCast1 = new PtrToIntInst(pLoad->getPointerOperand(), this->LongType, "", II);
+	CastInst * pCast2 = NULL;
+
+	vector<Value *> vecIndex;
+	vecIndex.push_back(this->ConstantInt0);
+	vecIndex.push_back(this->ConstantInt0);
+	const_ptr =  GetElementPtrInst::Create(pStoreAddress, vecIndex, "", II);
+	pStore = new StoreInst(this->ConstantInt0, const_ptr, false, II);
+	pStore->setAlignment(4);
+
+	vecIndex.clear();
+	vecIndex.push_back(this->ConstantInt0);
+	vecIndex.push_back(this->ConstantInt1);
+	vecIndex.push_back(this->ConstantInt0);
+	vecIndex.push_back(this->ConstantInt1);
+	const_ptr = GetElementPtrInst::Create(pStoreAddress, vecIndex, "", II);
+	pStore = new StoreInst(pCast1, const_ptr, false, II);
+	pStore->setAlignment(8);
+
+	vecIndex.clear();
+	vecIndex.push_back(this->ConstantInt0);
+	vecIndex.push_back(this->ConstantInt1);
+	vecIndex.push_back(this->ConstantInt0);
+	vecIndex.push_back(this->ConstantInt2);
+	const_ptr = GetElementPtrInst::Create(pStoreAddress, vecIndex, "", II);
+
+	if(IntegerType * pIntType = dyn_cast<IntegerType>(pLoad->getType()))
+	{
+		if(pIntType->getBitWidth() == 64)
+		{
+			pStore = new StoreInst(pLoad, const_ptr, false, II);
+		}
+		else
+		{
+			pCast2 = CastInst::CreateIntegerCast(pLoad, this->LongType, true, "", II);
+			pStore = new StoreInst(pCast2, const_ptr, false, II);
+		}
+		
+	}
+	else if(isa<PointerType>(pLoad->getType()))
+	{
+		pCast2 = new PtrToIntInst(pLoad, this->LongType, "", II);
+		pStore = new StoreInst(pCast2, const_ptr, false, II);
+	}
+	else if(pLoad->getType()->isDoubleTy())
+	{
+		CastInst * pCast = new FPToSIInst(pLoad, this->LongType, "", II);
+		pStore = new StoreInst(pCast, const_ptr, false, II);
+	}
+	else
+	{	
+		//pLoad->dump();
+		//errs() << pLoad->getType()->isIntOrIntVectorTy() << "\n";
+		assert(0);
+	}
+
+	pStore->setAlignment(8);
+
+	MDNode *Node = pLoad->getMetadata("ins_id");
+	assert(Node);
+	assert(Node->getNumOperands() == 1);
+	ConstantInt *CI = dyn_cast<ConstantInt>(Node->getOperand(0));
+
+	vecIndex.clear();
+	vecIndex.push_back(this->ConstantInt0);
+	vecIndex.push_back(this->ConstantInt1);
+	vecIndex.push_back(this->ConstantInt0);
+	vecIndex.push_back(this->ConstantInt0);
+	const_ptr = GetElementPtrInst::Create(pStoreAddress, vecIndex, "", II);
+	pStore = new StoreInst(CI, const_ptr, false, II);
+	pStore->setAlignment(4);
+
+	LoadInst * pLoadRecordSize = new LoadInst(this->iRecordSize_CPI, "", false, II);
+	pLoadRecordSize->setAlignment(8);
+
+
+	BinaryOperator * pAdd = BinaryOperator::Create(Instruction::Add, pLoadIndex, pLoadRecordSize, "", II);
+	pStore = new StoreInst(pAdd, this->iBufferIndex_CPI, false, II);
+	pStore->setAlignment(8);
+
+}
+
+
+/*
 void CrossInterationInstrument::InlineHookLoad(LoadInst * pLoad, Instruction * II )
 {
 	//BasicBlock::iterator II = pLoad;
@@ -478,7 +583,91 @@ void CrossInterationInstrument::InlineHookLoad(LoadInst * pLoad, Instruction * I
 	pStore = new StoreInst(pAdd, this->iBufferIndex_CPI, false, II);
 	pStore->setAlignment(8);
 }
+*/
 
+void CrossInterationInstrument::InlineHookInst(Instruction * pI, Instruction * II)
+{
+	MDNode *Node = pI->getMetadata("ins_id");
+	assert(Node);
+	assert(Node->getNumOperands() == 1);
+	ConstantInt *CI = dyn_cast<ConstantInt>(Node->getOperand(0));
+	CastInst * pCast;
+
+	LoadInst * pLoadPointer = new LoadInst(this->pcBuffer_CPI, "", false, II);
+	pLoadPointer->setAlignment(8);
+	LoadInst * pLoadIndex   = new LoadInst(this->iBufferIndex_CPI, "", false, II);
+	pLoadIndex->setAlignment(8);
+
+	GetElementPtrInst* getElementPtr = GetElementPtrInst::Create(pLoadPointer, pLoadIndex, "", II);
+	CastInst * pStoreAddress = new BitCastInst(getElementPtr, this->PT_struct_stLogRecord, "", II);
+
+	vector<Value *> vecIndex;
+	vecIndex.push_back(this->ConstantInt0);
+	vecIndex.push_back(this->ConstantInt0);
+	Instruction * const_ptr = GetElementPtrInst::Create(pStoreAddress, vecIndex, "", II);
+	StoreInst * pStore = new StoreInst(this->ConstantInt2, const_ptr, false, II);
+	pStore->setAlignment(4);
+
+	vecIndex.clear();
+	vecIndex.push_back(this->ConstantInt0);
+	vecIndex.push_back(this->ConstantInt1);
+	Instruction * InstRecord_ptr = GetElementPtrInst::Create(pStoreAddress, vecIndex, "", II);
+	PointerType * stInstRecord_PT = PointerType::get(this->struct_stInstRecord, 0);
+	CastInst * pInstRecord = new BitCastInst(InstRecord_ptr, stInstRecord_PT, "", II);
+
+	vecIndex.clear();
+	vecIndex.push_back(this->ConstantInt0);
+	vecIndex.push_back(this->ConstantInt0);
+	const_ptr = GetElementPtrInst::Create(pInstRecord, vecIndex, "", II);
+	pStore = new StoreInst(CI, const_ptr, false, II);
+	pStore->setAlignment(4);
+
+	vecIndex.clear();
+	vecIndex.push_back(this->ConstantInt0);
+	vecIndex.push_back(this->ConstantInt1);
+	const_ptr = GetElementPtrInst::Create(pInstRecord, vecIndex, "", II);
+
+	if(IntegerType * pIntType = dyn_cast<IntegerType>(pI->getType()))
+	{
+		if(pIntType->getBitWidth() != 64)
+		{
+			pCast = CastInst::CreateIntegerCast(pI, this->LongType, true, "", II);
+			pStore = new StoreInst(pCast, const_ptr, false, II);
+		}
+		else
+		{
+			pStore = new StoreInst(pI, const_ptr, false, II);
+		}
+	}
+	else if(isa<PointerType>(pI->getType()))
+	{
+		pCast = new PtrToIntInst(pI, this->LongType, "", II);
+		pStore = new StoreInst(pCast, const_ptr, false, II);
+	}
+	else if(pI->getType()->isDoubleTy())
+	{
+		CastInst * pCast = new FPToSIInst(pI, this->LongType, "", II);
+		pStore = new StoreInst(pCast, const_ptr, false, II);
+	}
+	else
+	{
+		pI->dump();
+		assert(0);
+	}
+	
+	pStore->setAlignment(8);
+
+	LoadInst * pLoadRecordSize = new LoadInst(this->iRecordSize_CPI, "", false, II);
+	pLoadRecordSize->setAlignment(8);
+
+	BinaryOperator * pAdd = BinaryOperator::Create(Instruction::Add, pLoadIndex, pLoadRecordSize, "", II);
+	pStore = new StoreInst(pAdd, this->iBufferIndex_CPI, false, II);
+	pStore->setAlignment(8);
+
+}
+
+
+/*
 void CrossInterationInstrument::InlineHookInst(Instruction * pI, Instruction * II)
 {
 	MDNode *Node = pI->getMetadata("ins_id");
@@ -566,7 +755,53 @@ void CrossInterationInstrument::InlineHookInst(Instruction * pI, Instruction * I
 	pStore->setAlignment(8);
 
 }
+*/
 
+void CrossInterationInstrument::InlineHookDelimit(Instruction * II)
+{
+	LoadInst * pLoadPointer = new LoadInst(this->pcBuffer_CPI, "", false, II);
+	pLoadPointer->setAlignment(8);
+	LoadInst * pLoadIndex   = new LoadInst(this->iBufferIndex_CPI, "", false, II);
+	pLoadIndex->setAlignment(8);
+
+	GetElementPtrInst* getElementPtr = GetElementPtrInst::Create(pLoadPointer, pLoadIndex, "", II);
+	CastInst * pStoreAddress = new BitCastInst(getElementPtr, this->PT_struct_stLogRecord, "", II);
+
+	//errs() << "after the first\n";
+	vector<Value *> vecIndex;
+	vecIndex.push_back(this->ConstantInt0);
+	vecIndex.push_back(this->ConstantInt0);
+
+	Instruction * const_ptr = GetElementPtrInst::Create(pStoreAddress, vecIndex, "", II);
+	StoreInst * pStore = new StoreInst(this->ConstantInt4, const_ptr, false, II);
+	pStore->setAlignment(4);
+
+	vecIndex.clear();
+	vecIndex.push_back(this->ConstantInt0);
+	vecIndex.push_back(this->ConstantInt1);
+	Instruction * DelimitRecord_ptr =  GetElementPtrInst::Create(pStoreAddress, vecIndex, "", II);;
+	PointerType * DelimitRecord_PT = PointerType::get(this->struct_stDelimiterRecord, 0);
+	CastInst * pDelimitRecord = new BitCastInst(DelimitRecord_ptr, DelimitRecord_PT , "", II);
+
+	vecIndex.clear();
+	vecIndex.push_back(this->ConstantInt0);
+	vecIndex.push_back(this->ConstantInt0);
+	const_ptr = GetElementPtrInst::Create(pDelimitRecord, vecIndex, "", II);
+
+	pStore = new StoreInst(this->pAddCurrentInstances, const_ptr, false, II);
+	pStore->setAlignment(8);
+
+	LoadInst * pLoadRecordSize = new LoadInst(this->iRecordSize_CPI, "", false, II);
+	pLoadRecordSize->setAlignment(8);
+
+	BinaryOperator * pAdd = BinaryOperator::Create(Instruction::Add, pLoadIndex, pLoadRecordSize, "", II);
+	pStore = new StoreInst(pAdd, this->iBufferIndex_CPI, false, II);
+	pStore->setAlignment(8);
+
+}
+
+
+/*
 void CrossInterationInstrument::InlineHookDelimit(Instruction * II)
 {
 	vector<Constant *> vecIndex;
@@ -624,9 +859,86 @@ void CrossInterationInstrument::InlineHookDelimit(Instruction * II)
 	BinaryOperator * pAdd = BinaryOperator::Create(Instruction::Add, pLoadIndex, pLoadRecordSize, "", II);
 	pStore = new StoreInst(pAdd, this->iBufferIndex_CPI, false, II);
 	pStore->setAlignment(8);
+}
+*/
+
+void CrossInterationInstrument::InlineHookMem(MemTransferInst * pMem, Instruction * II)
+{
+	MDNode *Node = pMem->getMetadata("ins_id");
+	assert(Node);
+	assert(Node->getNumOperands() == 1);
+	ConstantInt *CI = dyn_cast<ConstantInt>(Node->getOperand(0));
+
+	LoadInst * pLoadPointer = new LoadInst(this->pcBuffer_CPI, "", false, II);
+	pLoadPointer->setAlignment(8);
+	LoadInst * pLoadIndex   = new LoadInst(this->iBufferIndex_CPI, "", false, II);
+	pLoadIndex->setAlignment(8);
+
+	GetElementPtrInst* getElementPtr = GetElementPtrInst::Create(pLoadPointer, pLoadIndex, "", II);
+	CastInst * pStoreAddress = new BitCastInst(getElementPtr, this->PT_struct_stLogRecord, "", II);
+
+	vector<Value *> vecIndex;
+	vecIndex.push_back(this->ConstantInt0);
+	vecIndex.push_back(this->ConstantInt0);
+	Instruction * const_ptr = GetElementPtrInst::Create(pStoreAddress, vecIndex, "", II);
+	StoreInst * pStore = new StoreInst(this->ConstantInt5, const_ptr, false, II);
+	pStore->setAlignment(4);
+
+	vecIndex.clear();
+	vecIndex.push_back(this->ConstantInt0);
+	vecIndex.push_back(this->ConstantInt1);
+	Instruction * MemRecord_ptr = GetElementPtrInst::Create(pStoreAddress, vecIndex, "", II);
+	PointerType * stMemRecord_PT = PointerType::get(this->struct_stMemRecord, 0);
+	CastInst * pMemRecord = new BitCastInst(MemRecord_ptr, stMemRecord_PT, "", II);
+
+	vecIndex.clear();
+	vecIndex.push_back(this->ConstantInt0);
+	vecIndex.push_back(this->ConstantInt0);
+	const_ptr = GetElementPtrInst::Create(pMemRecord, vecIndex, "", II);
+	pStore = new StoreInst(CI, const_ptr, false, II);
+	pStore->setAlignment(4);
+
+	vecIndex.clear();
+	vecIndex.push_back(this->ConstantInt0);
+	vecIndex.push_back(this->ConstantInt1);
+	const_ptr = GetElementPtrInst::Create(pMemRecord, vecIndex, "", II);
+	Value * pValueLength = pMem->getLength();
+	pStore = new StoreInst(pValueLength, const_ptr, false, II);
+	pStore->setAlignment(8);
+
+	//LoadInst * pLoadPointer = new LoadInst(this->pcBuffer_CPI, "", false, II);
+	//pLoadPointer->setAlignment(8);
+	//LoadInst * pLoadIndex   = new LoadInst(this->iBufferIndex_CPI, "", false, II);
+	//pLoadIndex->setAlignment(8);
+
+	//GetElementPtrInst* getElementPtr = GetElementPtrInst::Create(pLoadPointer, pLoadIndex, "", II);
+	LoadInst * pLoadRecordSize = new LoadInst(this->iRecordSize_CPI, "", false, II);
+	pLoadRecordSize->setAlignment(8);
+	
+	BinaryOperator * pAdd = BinaryOperator::Create(Instruction::Add, pLoadIndex, pLoadRecordSize, "", II);
+
+	getElementPtr = GetElementPtrInst::Create(pLoadPointer, pAdd, "", II);
+	
+	vector<Value *> vecParam;
+	vecParam.push_back(getElementPtr);
+	vecParam.push_back(pMem->getRawSource());
+	vecParam.push_back(pValueLength);
+	vecParam.push_back(this->ConstantInt1);
+	vecParam.push_back(this->ConstantIntFalse);
+
+	CallInst * pCall = CallInst::Create(this->func_llvm_memcpy, vecParam, "", II);
+	pCall->setCallingConv(CallingConv::C);
+	pCall->setTailCall(false);
+	AttributeSet AS;
+	pCall->setAttributes(AS);
+
+	pAdd = BinaryOperator::Create(Instruction::Add, pAdd, pValueLength, "", II );
+	pStore = new StoreInst(pAdd, this->iBufferIndex_CPI, false, II);
+	pStore->setAlignment(8);
 
 }
 
+/*
 void CrossInterationInstrument::InlineHookMem(MemTransferInst * pMem, Instruction * II)
 {
 	MDNode *Node = pMem->getMetadata("ins_id");
@@ -707,6 +1019,7 @@ void CrossInterationInstrument::InlineHookMem(MemTransferInst * pMem, Instructio
 	pStore = new StoreInst(pAdd, this->iBufferIndex_CPI, false, II);
 	pStore->setAlignment(8);
 }
+*/
 
 void CrossInterationInstrument::InstrumentPreHeader(Loop * pLoop)
 {
@@ -933,6 +1246,10 @@ void CrossInterationInstrument::UpdateHeader(set<BasicBlock *> & setCloned, Valu
 	ICmpInst * pCmp = new ICmpInst(this->pHeader->getTerminator(), ICmpInst::ICMP_SLT, this->pAddnumGlobalCounter, pPHI, "");
 	BranchInst * pBranch = BranchInst::Create(this->pOldHeader, this->pNewHeader, pCmp );
 	ReplaceInstWithInst(this->pHeader->getTerminator(), pBranch);
+
+	MDNode * Node = MDBuilder(this->pM->getContext()).createBranchWeights(99999999,1);
+	pBranch->setMetadata(llvm::LLVMContext::MD_prof, Node);
+
 }
 
 void CrossInterationInstrument::UpdateExitBlock(Function * pFunction, set<BasicBlock *> & setExitBlocks, set<BasicBlock *> & setCloned, ValueToValueMapTy & VMap)
@@ -970,7 +1287,7 @@ void CrossInterationInstrument::UpdateExitBlock(Function * pFunction, set<BasicB
 void CrossInterationInstrument::AddHooksToLoop(vector<Instruction *> & vecInst, ValueToValueMapTy & VMap, ValueToValueMapTy & VCalleeMap, map<Function *, set<Instruction *> > & FuncCallSiteMapping)
 {
 	//add delimiter
-	InlineHookDelimit(pNewHeader->getTerminator());
+	InlineHookDelimit(pNewHeader->getFirstInsertionPt());
 
 	vector<Instruction *>::iterator itVecBegin = vecInst.begin();
 	vector<Instruction *>::iterator itVecEnd   = vecInst.end();
@@ -989,7 +1306,16 @@ void CrossInterationInstrument::AddHooksToLoop(vector<Instruction *> & vecInst, 
 			}
 			else
 			{
-				InlineHookInst(*itVecBegin, pNewHeader->getTerminator());
+				if (InvokeInst *Inv = dyn_cast<InvokeInst>(*itVecBegin))
+				{
+					InlineHookInst(Inv, Inv->getNormalDest()->getTerminator());
+				}
+				else
+				{
+					InlineHookInst(*itVecBegin, pNewHeader->getTerminator());
+				}
+
+				
 			}
 		}
 		else
@@ -1007,7 +1333,16 @@ void CrossInterationInstrument::AddHooksToLoop(vector<Instruction *> & vecInst, 
 			else
 			{
 				Instruction * pCloned = cast<Instruction>(VMap[*itVecBegin]);
-				InlineHookInst(pCloned, pCloned->getParent()->getTerminator());
+
+				if (InvokeInst *Inv = dyn_cast<InvokeInst>(pCloned))
+				{
+					InlineHookInst(Inv, Inv->getNormalDest()->getTerminator());
+				}
+				else
+				{
+					InlineHookInst(pCloned, pCloned->getParent()->getTerminator());
+				}
+				//InlineHookInst(pCloned, pCloned->getParent()->getTerminator());
 			}
 		}
 	}
@@ -1097,6 +1432,7 @@ void CrossInterationInstrument::CloneLoopBody(Loop * pLoop, vector<Instruction *
 	set<BasicBlock *> setCloned;
 	DoClone(pFunction, vecToDo, VMap, setCloned);
 
+
 	this->pNewHeader = cast<BasicBlock>(VMap[pOldHeader]);
 	InstrumentNewHeader();
 	UpdateHeader(setCloned, VMap);
@@ -1108,6 +1444,11 @@ void CrossInterationInstrument::CloneLoopBody(Loop * pLoop, vector<Instruction *
 
 	for(; itSetBlockBegin != itSetBlockEnd; itSetBlockBegin ++ )
 	{
+		if((*itSetBlockBegin)->isLandingPad())
+		{
+			continue;
+		}
+
 		int iNum = 0;
 
 		for(pred_iterator PI = pred_begin(*itSetBlockBegin); PI != pred_end(*itSetBlockBegin); PI ++ )
@@ -1201,7 +1542,6 @@ bool CrossInterationInstrument::canSinkOrHoistInst(Instruction &I)
 		return false;
 	}
 
-	assert(0);
 
 	// Only these instructions are hoistable/sinkable.
 	if (!isa<BinaryOperator>(I) && !isa<CastInst>(I) && !isa<SelectInst>(I) &&
@@ -1293,7 +1633,7 @@ void CrossInterationInstrument::CollectInstrumentedInst(Loop * pLoop, vector<Ins
 	vector<Instruction *>::iterator itVecBegin = vecOut.begin();
 	vector<Instruction *>::iterator itVecEnd   = vecOut.end();
 
-	errs() << "Instruction defined outside: \n";
+	errs() << "Instruction defined outside: " << vecOut.size() << "\n";
 
 	for(; itVecBegin != itVecEnd; itVecBegin ++ )
 	{
@@ -1305,7 +1645,7 @@ void CrossInterationInstrument::CollectInstrumentedInst(Loop * pLoop, vector<Ins
 	itVecBegin = vecInv.begin();
 	itVecEnd   = vecInv.end();
 
-	errs() << "Invariant Instruction: \n";
+	errs() << "Invariant Instruction: " << vecInv.size() << "\n";
 
 	for(; itVecBegin != itVecEnd; itVecBegin ++ )
 	{
@@ -1313,17 +1653,30 @@ void CrossInterationInstrument::CollectInstrumentedInst(Loop * pLoop, vector<Ins
 	}
 
 
-	errs() << "\n\nMonitored Instruction :\n";
+	itVecBegin = vecInst.begin();
+	itVecEnd = vecInst.end();
+
+	int numPHI = 0;
+
+	for(; itVecBegin != itVecEnd; itVecBegin ++ )
+	{
+		if(isa<PHINode>(*itVecBegin))
+		{
+			numPHI++;
+		}
+	}
+
+	errs() << "\n\nMonitored Instruction : " << vecInst.size() << " " << numPHI << " " << vecInst.size() - numPHI << "\n";
 
 	itVecBegin = vecInst.begin();
 	itVecEnd = vecInst.end();
 
 	for(; itVecBegin != itVecEnd; itVecBegin ++ )
 	{
+
 		PrintInstructionInfo(*itVecBegin);
 	}
-
-	exit(0);
+	//exit(0);
 
 
 }
@@ -1489,6 +1842,9 @@ void CrossInterationInstrument::CloneFunctionCalled(set<BasicBlock *> & setBlock
 		}
 	}
 
+	errs() << "Instruction inside callee: " << setMonitoredInstInCallee.size() << "\n";
+
+	int iMemSet = 0;
 	set<Instruction *>::iterator itMonInstBegin = setMonitoredInstInCallee.begin();
 	set<Instruction *>::iterator itMonInstEnd   = setMonitoredInstInCallee.end();
 
@@ -1504,12 +1860,10 @@ void CrossInterationInstrument::CloneFunctionCalled(set<BasicBlock *> & setBlock
 
 			InlineHookLoad(cast<LoadInst>(It->second), next);
 		}
-		else if(isa<CallInst>(It->second) || isa<InvokeInst>(It->second))
+		else if(isa<MemSetInst>(It->second) )
 		{
-			BasicBlock::iterator next = cast<Instruction>(It->second);
-			next ++;
-
-			InlineHookInst(cast<Instruction>(It->second), next);
+			iMemSet ++;
+			continue;
 		}
 		else if(MemTransferInst * pMem = dyn_cast<MemTransferInst>(It->second))
 		{
@@ -1518,12 +1872,24 @@ void CrossInterationInstrument::CloneFunctionCalled(set<BasicBlock *> & setBlock
 
 			InlineHookMem(pMem, next);
 		}
+		else if(isa<CallInst>(It->second))
+		{
+			BasicBlock::iterator next = cast<Instruction>(It->second);
+			next ++;
+
+			InlineHookInst(cast<Instruction>(It->second), next);
+		}
+		else if(InvokeInst * pInvoke = dyn_cast<InvokeInst>(It->second))
+		{
+			InlineHookInst(cast<Instruction>(It->second), pInvoke->getNormalDest()->getTerminator());
+		}	
 		else
 		{
 			assert(0);
 		}
 	}
 
+	errs() << "MemSet: " << iMemSet << "\n";
 }
 
 void CrossInterationInstrument::InstrumentMain(Module * pModule)
@@ -1598,11 +1964,13 @@ void CrossInterationInstrument::InstrumentMain(Module * pModule)
   			pCall->setAttributes(AS);
 
   			//Multipled by 2
-  			BinaryOperator * pMul = BinaryOperator::Create(Instruction::Mul, pCall, this->ConstantInt2, "", II);
-  			pStore = new StoreInst(pMul, this->SAMPLE_RATE, false, II);
+  			//BinaryOperator * pMul = BinaryOperator::Create(Instruction::Mul, pCall, this->ConstantInt2, "", II);
+  			//pStore = new StoreInst(pMul, this->SAMPLE_RATE, false, II);
+  			pStore = new StoreInst(pCall, this->SAMPLE_RATE, false, II);
   			pStore->setAlignment(4);
 
-  			pCall = CallInst::Create(this->geo, pMul, "", II);
+  			//pCall = CallInst::Create(this->geo, pMul, "", II);
+  			pCall = CallInst::Create(this->geo, pCall, "", II);
   			pCall->setCallingConv(CallingConv::C);
   			pCall->setTailCall(false);
   			pCall->setAttributes(emptySet);
@@ -1669,12 +2037,15 @@ void CrossInterationInstrument::InstrumentMain(Module * pModule)
 
 bool CrossInterationInstrument::runOnModule(Module& M)
 {
+	this->pM = &M;
 	if(strLibrary != "" )
 	{
 		ParseLibraryFunctionFile(strLibrary, &M, this->LibraryTypeMapping);
 	}
 
 	ParseMonitoredInstFile(strMonitorInstFile, &M, this->setInstID, this->vecParaID);
+
+	errs() << "Para size: " << this->vecParaID.size() << "\n";
 
 	Function * pFunction = SearchFunctionByName(M, strFileName, strFuncName, uSrcLine);
 
@@ -1684,7 +2055,6 @@ bool CrossInterationInstrument::runOnModule(Module& M)
 		return false;
 	}
 
-	//PostDominatorTree * PDT = &getAnalysis<PostDominatorTree>(*pFunction);
 	LoopInfo * pLI = &(getAnalysis<LoopInfo>(*pFunction));
 	Loop * pLoop;
 
@@ -1713,7 +2083,6 @@ bool CrossInterationInstrument::runOnModule(Module& M)
 
 	this->AA = &getAnalysis<AliasAnalysis>();
 	this->DL = getAnalysisIfAvailable<DataLayout>();
-	//this->TLI = &getAnalysis<TargetLibraryInfo>();
 
 	this->CurAST = new AliasSetTracker(*(this->AA));
 
@@ -1730,10 +2099,8 @@ bool CrossInterationInstrument::runOnModule(Module& M)
 
 	CloneLoopBody(pLoop, vecInst);
 
-
-
-	pFunction->dump();
-
+	BasicBlock * pNewHeader = SearchBlockByName(pFunction, ".oldheader.CPI");
+	pNewHeader->dump();
 
 	delete this->CurAST;
 	return false;

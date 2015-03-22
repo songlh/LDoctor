@@ -15,6 +15,7 @@
 #include "llvm-Commons/Utility/Utility.h"
 #include "llvm-Commons/CFG/CFGUtility.h"
 #include "llvm-Commons/Dependence/DependenceUtility.h"
+#include "llvm-Commons/SEWrapper/SEWrapper.h"
 
 #include "Redundancy/CI-Redundancy/CIRedundancy.h"
 
@@ -58,17 +59,21 @@ char CrossIterationRedundancy::ID = 0;
 void CrossIterationRedundancy::getAnalysisUsage(AnalysisUsage &AU) const 
 {
 	AU.setPreservesAll();
+	AU.addRequired<DominatorTree>();
 	AU.addRequired<PostDominatorTree>();
 	AU.addRequired<LoopInfo>();
 	AU.addRequired<DataLayout>();
 	AU.addRequired<InterProcDep>();
+	AU.addRequired<ScalarEvolution>();
 }
 
 CrossIterationRedundancy::CrossIterationRedundancy(): ModulePass(ID) 
 {
 	PassRegistry &Registry = *PassRegistry::getPassRegistry();
 	initializeDataLayoutPass(Registry);
+	initializeDominatorTreePass(Registry);
 	initializePostDominatorTreePass(Registry);
+
 }
 
 void CrossIterationRedundancy::print(raw_ostream &O, const Module *M) const
@@ -76,7 +81,7 @@ void CrossIterationRedundancy::print(raw_ostream &O, const Module *M) const
 	return;
 }
 
-
+/*
 void CrossIterationRedundancy::CollectCalleeInsideLoop(Loop * pLoop)
 {
 	for(Loop::block_iterator BB = pLoop->block_begin(); BB != pLoop->block_end(); ++ BB)
@@ -115,11 +120,12 @@ void CrossIterationRedundancy::CollectCalleeInsideLoop(Loop * pLoop)
 		}
 	}
 }
+*/
 
-
-void CrossIterationRedundancy::CollectSideEffectInstsInsideLoop(Loop * pLoop, set<Instruction *> & setInstructions)
+void CrossIterationRedundancy::CollectSideEffectInstsInsideLoop(Loop * pLoop, set<Instruction *> & setInstructions, ControlDependenceGraphBase & CDG)
 {
 	set<BasicBlock *> setBlocksInLoop;
+	set<Instruction *> setSDInstInType2;
 
 	for( Loop::block_iterator BB = pLoop->block_begin(); BB != pLoop->block_end(); ++ BB )
 	{	
@@ -197,7 +203,137 @@ void CrossIterationRedundancy::CollectSideEffectInstsInsideLoop(Loop * pLoop, se
 		}
 	}
 
+	set<BasicBlock *> setType1Blocks;
+	set<BasicBlock *> setType2Blocks;
 
+	Search2TypeBlocksInLoop(setType1Blocks, setType2Blocks, pLoop, pFunction, this->PDT, this->DT);
+
+	set<BasicBlock *>::iterator itSetBlockBegin = setType2Blocks.begin();
+	set<BasicBlock *>::iterator itSetBlockEnd   = setType2Blocks.end();
+
+	for(; itSetBlockBegin != itSetBlockEnd; itSetBlockBegin ++ )
+	{
+		BasicBlock * BB = * itSetBlockBegin;
+		for(BasicBlock::iterator II = (BB)->begin() ; II != (BB)->end(); ++ II)
+		{
+			if(StoreInst * pStore = dyn_cast<StoreInst>(II) )
+			{
+				setSDInstInType2.insert(pStore);
+			}
+			else if(isa<CallInst>(II) || isa<InvokeInst>(II) )
+			{
+				if(isa<DbgInfoIntrinsic>(II))
+				{
+					continue;
+				}
+
+				if(isa<MemIntrinsic>(II))
+				{
+					setSDInstInType2.insert(II);
+					continue;
+				}
+
+				CallSite cs(II);
+				Function * pCalled = cs.getCalledFunction();
+
+				if(pCalled == NULL)  // this should be changed
+				{
+					setSDInstInType2.insert(II);
+					continue;
+				}
+
+				if(this->LibraryTypeMapping.find(pCalled) != this->LibraryTypeMapping.end() )
+				{
+					if(this->LibraryTypeMapping[pCalled] == LF_TRANSPARENT)
+					{
+						continue;
+					}
+					else if(this->LibraryTypeMapping[pCalled] == LF_PURE)
+					{
+						continue;
+					}
+
+					setSDInstInType2.insert(II);
+					continue;
+				}
+
+				if(pCalled->isDeclaration())
+				{
+					setSDInstInType2.insert(II);
+					continue;
+				}
+			}
+		}
+	}
+
+
+	set<Edge> setType2Edges;
+	SearchExitEdgesForBlocks(setType2Edges, setType2Blocks);
+
+	itEdgeBegin = setType2Edges.begin();
+	itEdgeEnd = setType2Edges.end();
+
+	for(; itEdgeBegin != itEdgeEnd; itEdgeBegin++)
+	{
+		if(pLoop->contains(itEdgeBegin->second))
+		{
+			continue;
+		}
+
+		SETBefore::iterator itSetInstBegin = mapBeforeAfter[itEdgeBegin->second].first[itEdgeBegin->first].begin();
+		SETBefore::iterator itSetInstEnd = mapBeforeAfter[itEdgeBegin->second].first[itEdgeBegin->first].end();
+
+		for(; itSetInstBegin != itSetInstEnd; itSetInstBegin++)
+		{
+			if(setType2Blocks.find((*itSetInstBegin)->getParent()) != setType2Blocks.end() )
+			{
+				setSDInstInType2.insert(*itSetInstBegin);
+			}
+		}
+	}
+
+	set<Instruction *>::iterator itSetBegin = setSDInstInType2.begin();
+	set<Instruction *>::iterator itSetEnd = setSDInstInType2.end();
+
+	for(; itSetBegin != itSetEnd; itSetBegin ++)
+	{
+		BasicBlock * pBlock = (*itSetBegin)->getParent();
+
+		for( Loop::block_iterator BB = pLoop->block_begin(); BB != pLoop->block_end(); ++ BB )
+		{					
+			if(CDG.influences(*BB, pBlock))
+			{
+				TerminatorInst * pTerminator = (*BB)->getTerminator();
+			
+				if(pTerminator != NULL)
+				{
+					if(BranchInst * pBranch = dyn_cast<BranchInst>(pTerminator))
+					{
+						if(pBranch->isConditional())
+						{
+							if(Instruction * pInst = dyn_cast<Instruction>(pBranch->getCondition() ))
+							{
+								setInstructions.insert(pInst);
+							}
+						}
+					}
+					else if(SwitchInst * pSwitch = dyn_cast<SwitchInst>(pTerminator))
+					{
+						if(Instruction * pInst = dyn_cast<Instruction>(pSwitch->getCondition() ))
+						{
+							setInstructions.insert(pInst);
+						}
+					}
+				}
+			}
+		}
+
+	}
+
+
+
+
+/*
 	set<Instruction *>::iterator itSetBegin = setInstructions.begin();
 	set<Instruction *>::iterator itSetEnd   = setInstructions.end();
 
@@ -205,7 +341,7 @@ void CrossIterationRedundancy::CollectSideEffectInstsInsideLoop(Loop * pLoop, se
 	{
 		(*itSetBegin)->dump();
 	}
-
+*/
 
 }
 
@@ -309,7 +445,6 @@ void CrossIterationRedundancy::LoopDependenceAnalysis(Loop * pLoop, set<Value *>
 			}
 			else
 			{
-
 				map<Instruction *, set<Value *> > ValueDependenceMapping = this->IPD->StartFuncValueDependenceMappingMappingMapping[pCalled][pCalled];
 					
 				set<ReturnInst *> setRetInst;
@@ -486,11 +621,13 @@ void CrossIterationRedundancy::CIDependenceAnalysis(Loop * pLoop, set<Value *> &
 		setBlockInsideLoop.insert(*BB);
 	}
 
-	set<Instruction *> setSideEffectInst;
-	CollectSideEffectInstsInsideLoop(pLoop, setSideEffectInst);
-
 	ControlDependenceGraphBase CDG;
 	CDG.graphForFunction(*pCurrentFunction, *PDT);
+
+	set<Instruction *> setSideEffectInst;
+	CollectSideEffectInstsInsideLoop(pLoop, setSideEffectInst, CDG);
+
+
 
 	set<Value *> setSEInstDependence ;
 	CalDependenceForSEInst(pLoop, setSideEffectInst, setSEInstDependence, CDG);
@@ -675,13 +812,17 @@ bool CrossIterationRedundancy::runOnModule(Module& M)
 		return false;
 	}
 
-	PostDominatorTree * PDT = &getAnalysis<PostDominatorTree>(*pFunction);
-	LoopInfo * pLI = &(getAnalysis<LoopInfo>(*pFunction));
+	this->PDT = &getAnalysis<PostDominatorTree>(*pFunction);
+	this->DT  = &getAnalysis<DominatorTree>(*pFunction);
+	this->LI = &(getAnalysis<LoopInfo>(*pFunction));
+	this->SE = &(getAnalysis<ScalarEvolution>(*pFunction));
+	this->pDL = &(getAnalysis<DataLayout>());
+
 	Loop * pLoop; 
 
 	if(strLoopHeader == "")
 	{
-		pLoop = SearchLoopByLineNo(pFunction, pLI, uSrcLine);
+		pLoop = SearchLoopByLineNo(pFunction, this->LI, uSrcLine);
 	}
 	else
 	{
@@ -693,7 +834,7 @@ bool CrossIterationRedundancy::runOnModule(Module& M)
 			return false;
 		}
 
-		pLoop = pLI->getLoopFor(pHeader);
+		pLoop = this->LI->getLoopFor(pHeader);
 	}
 
 	if(pLoop == NULL)
@@ -702,10 +843,13 @@ bool CrossIterationRedundancy::runOnModule(Module& M)
 		return false;
 	}
 
-	CollectCalleeInsideLoop(pLoop);
+	//CollectCalleeInsideLoop(pLoop);
+	CollectCalleeInsideLoop(pLoop, this->setCallee, this->CalleeCallSiteMapping, this->LibraryTypeMapping);
+
 
 	this->IPD = &getAnalysis<InterProcDep>();
 	this->IPD->InitlizeStartFunctionSet(this->setCallee);
+	this->IPD->LibraryTypeMapping = this->LibraryTypeMapping;
 	this->IPD->InterProcDependenceAnalysis();
 
 	set<Value *> setDependentValue;
@@ -746,6 +890,24 @@ bool CrossIterationRedundancy::runOnModule(Module& M)
 				unsigned int uLineNoForInstruction = Loc.getLineNumber();
 				errs() << "//---"<< sFileNameForInstruction << ": " << uLineNoForInstruction << "\n";
 			}
+
+			if(PHINode * pPHI = dyn_cast<PHINode>(pInst))
+			{
+				if(pPHI->getParent() == pLoop->getHeader() )
+				{
+					if(IsIterativeVariable(pPHI, pLoop, this->SE))
+					{
+
+						errs() << "//---Iterative Variable\n" ;
+						int64_t stride = CalculateStride(pPHI, pLoop, this->SE, this->pDL);
+				
+						if(stride != 0 )
+						{
+							errs() << "//---stride: " << stride << "\n";
+						}
+					}
+				}	
+			}
 		}
 		else if(Argument * pArg = dyn_cast<Argument>(*itSetBegin))
 		{
@@ -771,8 +933,6 @@ bool CrossIterationRedundancy::runOnModule(Module& M)
 			(*itSetBegin)->dump();
 		}
 	}
-
-	pLoop->dump();
 
 	return false;
 }

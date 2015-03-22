@@ -29,6 +29,7 @@ private:
 	LoopInfo * LI;
 	ScalarEvolution * SE;
 	DataLayout * DL;
+	DominatorTree * DT;
 
 	MonitoredElement MonitorElems;
 	

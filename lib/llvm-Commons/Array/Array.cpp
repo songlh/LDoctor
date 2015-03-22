@@ -370,13 +370,43 @@ bool BeArrayAccess(Loop * pLoop, LoadInst * pLoad, ScalarEvolution * SE, DataLay
 	}
 
 	int64_t iStride = CalculateStride(pPointer, pLoop, SE, DL);
+	//errs() << "stride: " << iStride << "\n";
 
 	if(iStride == 0)
 	{
 		return false;
 	}
 
-	if(abs(iStride) == iLoadSize)
+	if(abs(iStride) >= iLoadSize)
+	{
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+
+bool BeArrayWrite(Loop * pLoop, StoreInst * pStore, ScalarEvolution * SE, DataLayout * DL)
+{
+	Value * pPointer = pStore->getPointerOperand();
+
+	int64_t iStoreSize = 0;
+
+
+	if(PointerType * pPointerType = dyn_cast<PointerType>(pPointer->getType()))
+	{
+		iStoreSize = pPointerType->getElementType()->getPrimitiveSizeInBits()/8;
+	}
+
+	int64_t iStride = CalculateStride(pPointer, pLoop, SE, DL);
+
+	if(iStride == 0)
+	{
+		return false;
+	}
+
+	if(abs(iStride) == iStoreSize)
 	{
 		return true;
 	}
