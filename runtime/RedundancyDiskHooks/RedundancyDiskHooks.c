@@ -9,7 +9,7 @@
 #include <time.h>
 #include <unistd.h>
 
-#define BUFFERSIZE (unsigned long)1 << 33
+#define BUFFERSIZE (unsigned long)1 << 38
 
 
 //----- Function prototypes -------------------------------------------------
@@ -90,11 +90,12 @@ int fd;
 
 void FinalizeMemHooks(long iBufferIndex) 
 {
-	if(ftruncate(fd, iBufferIndex) == -1)
+	if(ftruncate64(fd, iBufferIndex) == -1)
 	{
 		fprintf(stderr,  "ftruncate: %s\n", strerror(errno) );
 		exit(-1);
 	}
+	
 	close(fd);
 }
 
@@ -103,11 +104,13 @@ char * InitMemHooks()
 	time_t T = time(NULL);
 	struct tm *LT = localtime(&T);
 	char LogFileNameCStr[1024];
-	sprintf(LogFileNameCStr, "CPI-%04d%02d%02d-%02d%02d%02d", LT->tm_year + 1900, LT->tm_mon + 1, LT->tm_mday, LT->tm_hour, LT->tm_min, LT->tm_sec);
+	sprintf(LogFileNameCStr, "/home/songlh/PLDI2015/tmp/CPI-%04d%02d%02d-%02d%02d%02d", LT->tm_year + 1900, LT->tm_mon + 1, LT->tm_mday, LT->tm_hour, LT->tm_min, LT->tm_sec);
 	
 	printf("%s\n", LogFileNameCStr);
 
-	fd = shm_open( LogFileNameCStr, O_RDWR | O_CREAT, 0777 );
+	//fd = shm_open( LogFileNameCStr, O_RDWR | O_CREAT, 0777 );
+	fd = open(LogFileNameCStr, O_RDWR | O_CREAT, 0777);
+
 	if(fd == -1)
 	{	
 		fprintf( stderr, "Open failed:%s\n", strerror( errno ) );
@@ -121,6 +124,7 @@ char * InitMemHooks()
 	}
 
 	char * pcBuffer = (char *)mmap(0, BUFFERSIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+	printf("%ld\n", (long)pcBuffer);
 	return pcBuffer;
 }
 
