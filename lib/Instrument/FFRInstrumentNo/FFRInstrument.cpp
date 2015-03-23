@@ -1164,61 +1164,7 @@ void FFRInstrument::InstrumentMain(Module * pModule)
 			pStore = new StoreInst(this->ConstantLong40, this->iRecordSize_CPI, false, II);
 			pStore->setAlignment(8);
 
-			pCall = CallInst::Create(this->getenv, this->SAMPLE_RATE_ptr, "", II);
-			pCall->setCallingConv(CallingConv::C);
-			pCall->setTailCall(false);
-			AttributeSet AS;
-			{
-				SmallVector<AttributeSet, 4> Attrs;
-				AttributeSet PAS;
-				{
-					AttrBuilder B;
-					B.addAttribute(Attribute::NoUnwind);
-					PAS = AttributeSet::get(pModule->getContext(), ~0U, B);
-				}
-				Attrs.push_back(PAS);
-				AS = AttributeSet::get(pModule->getContext(), Attrs);
-			}
-			pCall->setAttributes(AS);
 
-			pCall = CallInst::Create(this->function_atoi, pCall, "", II);
-			pCall->setCallingConv(CallingConv::C);
-			pCall->setTailCall(false);
-			{
-  				SmallVector<AttributeSet, 4> Attrs;
-   				AttributeSet PAS;
-    			{
-    	 			AttrBuilder B;
-     				B.addAttribute(Attribute::NoUnwind);
-     				B.addAttribute(Attribute::ReadOnly);
-     				PAS = AttributeSet::get(pModule->getContext(), ~0U, B);
-    			}
-   
-   				Attrs.push_back(PAS);
-   				AS = AttributeSet::get(pModule->getContext(), Attrs);
-   
-  			}
-  			pCall->setAttributes(AS);
-
-  			pStore = new StoreInst(pCall, this->SAMPLE_RATE, false, II);
-  			pStore->setAlignment(4);
-
-  			pCall = CallInst::Create(this->geo, pCall, "", II);
-  			pCall->setCallingConv(CallingConv::C);
-  			pCall->setTailCall(false);
-  			pCall->setAttributes(emptySet);
-
-  			CastInst * pCast = CastInst::CreateIntegerCast(pCall, this->LongType, true, "", II);
-  			pStore = new StoreInst(pCast, this->CURRENT_SAMPLE, false, II);
-  			pStore->setAlignment(8);
-
-  			vector<Value *> vecParam;
-  			vecParam.push_back(this->Output_Format_String);
-  			vecParam.push_back(pCall);
-  			pCall = CallInst::Create(this->printf, vecParam, "", II);
-  			pCall->setCallingConv(CallingConv::C);
-  			pCall->setTailCall(false);
-  			pCall->setAttributes(emptySet);
 			break;
 		}
 	}
