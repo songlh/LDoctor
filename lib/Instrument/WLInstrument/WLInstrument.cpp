@@ -6,6 +6,7 @@
 
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/PostDominators.h"
+#include "llvm/Transforms/Utils/ValueMapper.h"
 #include "llvm/Analysis/Dominators.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/CallSite.h"
@@ -157,8 +158,384 @@ void WorklessInstrument::SetupHooks(Module * pModule)
     FunctionType * PrintWorkingRatioType = FunctionType::get(this->VoidType, ArgTypes, false);
 
     this->PrintWorkingRatio = Function::Create(PrintWorkingRatioType, GlobalValue::ExternalLinkage, "PrintWorkingRatio", pModule);
+
+    ArgTypes.clear();
+	this->getenv = pModule->getFunction("getenv");
+	if(!this->getenv)
+	{
+		ArgTypes.push_back(this->CharStarType);
+		FunctionType * getenv_FuncTy = FunctionType::get(this->CharStarType, ArgTypes, false);
+		this->getenv = Function::Create(getenv_FuncTy, GlobalValue::ExternalLinkage, "getenv", pModule);
+		this->getenv->setCallingConv(CallingConv::C);
+	}
+
+	this->function_atoi = pModule->getFunction("atoi");
+	if(!this->function_atoi)
+	{
+		ArgTypes.clear();
+		ArgTypes.push_back(this->CharStarType);
+		FunctionType * atoi_FuncTy = FunctionType::get(this->IntType, ArgTypes, false);
+		this->function_atoi = Function::Create(atoi_FuncTy, GlobalValue::ExternalLinkage, "atoi", pModule );
+		this->function_atoi->setCallingConv(CallingConv::C);
+	}
+
+	this->printf = pModule->getFunction("printf");
+	if(!this->printf)
+	{
+		ArgTypes.clear();
+		ArgTypes.push_back(this->CharStarType);
+		FunctionType * printf_FuncTy = FunctionType::get(this->IntType, ArgTypes, true);
+		this->printf = Function::Create(printf_FuncTy, GlobalValue::ExternalLinkage, "printf", pModule);
+		this->printf->setCallingConv(CallingConv::C);
+	}
+
+	this->func_llvm_memcpy = pModule->getFunction("llvm.memcpy.p0i8.p0i8.i64");
+	if(!this->func_llvm_memcpy)
+	{
+		ArgTypes.clear();
+		ArgTypes.push_back(this->CharStarType);
+		ArgTypes.push_back(this->CharStarType);
+		ArgTypes.push_back(this->LongType);
+		ArgTypes.push_back(this->IntType);
+		ArgTypes.push_back(this->BoolType);
+		FunctionType * memcpy_funcTy = FunctionType::get(this->VoidType, ArgTypes, false);
+		this->func_llvm_memcpy = Function::Create(memcpy_funcTy, GlobalValue::ExternalLinkage, "llvm.memcpy.p0i8.p0i8.i64", pModule);
+		this->func_llvm_memcpy->setCallingConv(CallingConv::C);
+	}
+
+	AttributeSet func_llvm_memcpy_PAL;
+	{
+		SmallVector<AttributeSet, 4> Attrs;
+		AttributeSet PAS;
+		{
+			AttrBuilder B;
+			B.addAttribute(Attribute::NoCapture);
+			PAS = AttributeSet::get(pModule->getContext(), 1U, B);
+		}
+
+		Attrs.push_back(PAS);
+		{
+			AttrBuilder B;
+			B.addAttribute(Attribute::ReadOnly);
+			B.addAttribute(Attribute::NoCapture);
+			PAS = AttributeSet::get(pModule->getContext(), 2U, B);
+		}
+
+		Attrs.push_back(PAS);
+		{
+			AttrBuilder B;
+			B.addAttribute(Attribute::NoUnwind);
+			PAS = AttributeSet::get(pModule->getContext(), ~0U, B);
+		}
+
+		Attrs.push_back(PAS);
+		func_llvm_memcpy_PAL = AttributeSet::get(pModule->getContext(), Attrs);
+	}
+
+	this->func_llvm_memcpy->setAttributes(func_llvm_memcpy_PAL);
+
+	assert(pModule->getFunction("geo") == NULL);
+	ArgTypes.clear();
+	ArgTypes.push_back(this->IntType);
+	FunctionType * geo_FuncTy = FunctionType::get(this->IntType, ArgTypes, false);
+	this->geo = Function::Create(geo_FuncTy, GlobalValue::ExternalLinkage, "geo", pModule);
+	this->geo->setCallingConv(CallingConv::C);
+
+	assert(pModule->getFunction("InitHooks") == NULL);
+	ArgTypes.clear();
+	//FunctionType * InitHooks_FuncTy = FunctionType::get(this->VoidType, ArgTypes, false);
+	FunctionType * InitHooks_FuncTy = FunctionType::get(this->CharStarType, ArgTypes, false);
+	this->InitHooks = Function::Create(InitHooks_FuncTy, GlobalValue::ExternalLinkage, "InitHooks", pModule);
+	this->InitHooks->setCallingConv(CallingConv::C);
 }
 
+
+void WorklessInstrument::SetupGlobals(Module * pModule)
+{
+	assert(pModule->getGlobalVariable("SAMPLE_RATE")==NULL);
+	this->SAMPLE_RATE = new GlobalVariable(*pModule, this->IntType, false, GlobalValue::CommonLinkage, 0, "SAMPLE_RATE");
+	this->SAMPLE_RATE->setAlignment(4);
+	this->SAMPLE_RATE->setInitializer(this->ConstantInt0);
+
+	assert(pModule->getGlobalVariable("PC_SAMPLE_RATE")==NULL);
+	this->PC_SAMPLE_RATE = new GlobalVariable(*pModule, this->CharStarType, false, GlobalValue::CommonLinkage, 0, "PC_SAMPLE_RATE");
+	this->PC_SAMPLE_RATE->setAlignment(8);
+	this->PC_SAMPLE_RATE->setInitializer(this->ConstantNULL);
+
+	assert(pModule->getGlobalVariable("numGlobalCounter")==NULL);
+	this->numGlobalCounter = new GlobalVariable( *pModule , this->LongType, false, GlobalValue::ExternalLinkage, 0, "numGlobalCounter");
+	this->numGlobalCounter->setAlignment(8);
+	this->numGlobalCounter->setInitializer(this->ConstantLong0);
+
+/*
+	assert(pModule->getGlobalVariable("numInstances")==NULL);
+	this->numInstances = new GlobalVariable(*pModule, this->LongType, false, GlobalVariable::ExternalLinkage, 0, "numInstances");
+	this->numInstances->setAlignment(8);
+	this->numInstances->setInitializer(this->ConstantLong0);
+*/
+	assert(pModule->getGlobalVariable("CURRENT_SAMPLE") == NULL);
+	this->CURRENT_SAMPLE = new GlobalVariable(*pModule, this->LongType, false, GlobalValue::ExternalLinkage, 0, "CURRENT_SAMPLE");
+	this->CURRENT_SAMPLE->setAlignment(8);
+	this->CURRENT_SAMPLE->setInitializer(this->ConstantLong0);
+
+
+	//"SAMPLE_RATE" string
+	ArrayType* ArrayTy12 = ArrayType::get(IntegerType::get(pModule->getContext(), 8), 12);
+	GlobalVariable * pArrayStr = new GlobalVariable(*pModule, ArrayTy12, true, GlobalValue::PrivateLinkage, 0, "");
+	pArrayStr->setAlignment(1);  
+	Constant * ConstArray = ConstantDataArray::getString(pModule->getContext(), "SAMPLE_RATE", true);
+	vector<Constant *> vecIndex;
+	vecIndex.push_back(this->ConstantInt0); 
+	vecIndex.push_back(this->ConstantInt0);
+	this->SAMPLE_RATE_ptr = ConstantExpr::getGetElementPtr(pArrayStr, vecIndex);
+	pArrayStr->setInitializer(ConstArray);
+
+	//""
+	ArrayType * ArrayTy17 = ArrayType::get(IntegerType::get(pModule->getContext(), 8), 17);
+	pArrayStr = new GlobalVariable(*pModule, ArrayTy17, true, GlobalValue::PrivateLinkage, 0, "");
+	pArrayStr->setAlignment(1);
+	ConstArray = ConstantDataArray::getString(pModule->getContext(), "SAMPLE_RATE: %d\x0A", true);
+	vecIndex.clear();
+	vecIndex.push_back(this->ConstantInt0);
+	vecIndex.push_back(this->ConstantInt0);
+	this->Output_Format_String = ConstantExpr::getGetElementPtr(pArrayStr, vecIndex);
+	pArrayStr->setInitializer(ConstArray);	
+}
+
+void WorklessInstrument::CreateIfElseBlock(Loop * pLoop, vector<BasicBlock *> & vecAdded)
+{
+	BasicBlock * pPreHeader = pLoop->getLoopPreheader();
+	BasicBlock * pHeader = pLoop->getHeader();
+	Function * pInnerFunction = pPreHeader->getParent();
+	Module * pModule = pPreHeader->getParent()->getParent();
+
+	BasicBlock * pElseBody = NULL;
+	TerminatorInst * pTerminator = NULL;
+
+	BranchInst * pBranch = NULL;
+	LoadInst * pLoad1 = NULL;
+	LoadInst * pLoad2 = NULL;
+	LoadInst * pLoadnumGlobalCounter = NULL;
+	BinaryOperator * pAddOne = NULL;
+	StoreInst * pStoreNew = NULL;
+	CmpInst * pCmp = NULL;
+	CallInst * pCall = NULL;
+	StoreInst * pStore = NULL;
+	AttributeSet emptySet;
+
+	pTerminator = pPreHeader->getTerminator();
+	pLoadnumGlobalCounter = new LoadInst(this->numGlobalCounter, "", false, pTerminator);
+	pLoadnumGlobalCounter->setAlignment(8);
+	pAddOne = BinaryOperator::Create(Instruction::Add, pLoadnumGlobalCounter, this->ConstantLong1, "add", pTerminator);
+	pStoreNew = new StoreInst(pAddOne, this->numGlobalCounter, false, pTerminator);
+	pStoreNew->setAlignment(8);
+
+	pElseBody = BasicBlock::Create(pModule->getContext(), ".else.body.CPI", pInnerFunction, 0);
+
+	pLoad2 = new LoadInst(this->CURRENT_SAMPLE, "", false, pTerminator);
+	pLoad2->setAlignment(8);
+	pCmp = new ICmpInst(pTerminator, ICmpInst::ICMP_SLT, pAddOne, pLoad2, "");
+	pBranch = BranchInst::Create(pHeader, pElseBody, pCmp );
+	ReplaceInstWithInst(pTerminator, pBranch);
+
+	pLoad1 = new LoadInst(this->SAMPLE_RATE, "", false, pElseBody);
+	pCall = CallInst::Create(this->geo, pLoad1, "", pElseBody);
+  	pCall->setCallingConv(CallingConv::C);
+  	pCall->setTailCall(false);
+  	pCall->setAttributes(emptySet);
+
+  	CastInst * pCast = CastInst::CreateIntegerCast(pCall, this->LongType, true, "", pElseBody);
+  	//pBinary = BinaryOperator::Create(Instruction::Add, pLoad2, pCast, "add", pIfBody);
+  	pStore = new StoreInst(pCast, this->CURRENT_SAMPLE, false, pElseBody);
+  	pStore->setAlignment(8);
+
+  	pStore = new StoreInst(this->ConstantLong0, this->numGlobalCounter, false, pElseBody);
+  	pStore->setAlignment(8);
+
+  	pLoad1 = new LoadInst(this->numInstances, "", false, pElseBody);
+  	pLoad1->setAlignment(8);
+  	pAddOne = BinaryOperator::Create(Instruction::Add, pLoad1, this->ConstantLong1, "add", pElseBody);
+	pStore = new StoreInst(pAddOne, this->numInstances, false, pElseBody);
+	pStore->setAlignment(8);
+
+	vecAdded.push_back(pPreHeader);
+	vecAdded.push_back(pElseBody);
+}
+
+
+
+void WorklessInstrument::RemapInstruction(Instruction *I, ValueToValueMapTy &VMap) 
+{
+	for (unsigned op = 0, E = I->getNumOperands(); op != E; ++op) 
+	{
+		Value *Op = I->getOperand(op);
+		ValueToValueMapTy::iterator It = VMap.find(Op);
+		if (It != VMap.end())
+		{
+			I->setOperand(op, It->second);
+		}
+	}
+
+	if (PHINode *PN = dyn_cast<PHINode>(I)) 
+	{
+		for (unsigned i = 0, e = PN->getNumIncomingValues(); i != e; ++i) 
+		{
+			ValueToValueMapTy::iterator It = VMap.find(PN->getIncomingBlock(i));
+			if (It != VMap.end())
+				PN->setIncomingBlock(i, cast<BasicBlock>(It->second));
+		}
+	}
+}
+
+
+void WorklessInstrument::CloneInnerLoop(Loop * pLoop, vector<BasicBlock *> & vecAdd, ValueToValueMapTy & VMap, set<BasicBlock *> & setCloned)
+{
+	Function * pFunction = pLoop->getHeader()->getParent();
+	BasicBlock * pPreHeader = vecAdd[0];
+
+	SmallVector<BasicBlock *, 4> ExitBlocks;
+	pLoop->getExitBlocks(ExitBlocks);
+
+	set<BasicBlock *> setExitBlocks;
+
+	for(unsigned long i = 0; i < ExitBlocks.size(); i++)
+	{
+		setExitBlocks.insert(ExitBlocks[i]);
+	}
+
+	for(unsigned long i = 0; i < ExitBlocks.size(); i++ )
+	{
+		VMap[ExitBlocks[i]] = ExitBlocks[i];
+	}
+
+	vector<BasicBlock *> ToClone;
+	vector<BasicBlock *> BeenCloned;
+
+	
+	//clone loop
+	ToClone.push_back(pLoop->getHeader());
+
+	while(ToClone.size()>0)
+	{
+		BasicBlock * pCurrent = ToClone.back();
+		ToClone.pop_back();
+
+		WeakVH & BBEntry = VMap[pCurrent];
+		if (BBEntry)
+		{
+			continue;
+		}
+
+		BasicBlock * NewBB;
+		BBEntry = NewBB = BasicBlock::Create(pCurrent->getContext(), "", pFunction);
+
+		if(pCurrent->hasName())
+		{
+			NewBB->setName(pCurrent->getName() + ".CPI");
+		}
+
+		if(pCurrent->hasAddressTaken())
+		{
+			errs() << "hasAddressTaken branch\n" ;
+			exit(0);
+		}
+
+		for(BasicBlock::const_iterator II = pCurrent->begin(); II != pCurrent->end(); ++II )
+		{
+			Instruction * NewInst = II->clone();
+			if(II->hasName())
+			{
+				NewInst->setName(II->getName() + ".CPI");
+			}
+			VMap[II] = NewInst;
+			NewBB->getInstList().push_back(NewInst);
+		}
+
+		const TerminatorInst *TI = pCurrent->getTerminator();
+		for (unsigned i = 0, e = TI->getNumSuccessors(); i != e; ++i)
+		{
+			ToClone.push_back(TI->getSuccessor(i));
+		}
+
+		setCloned.insert(NewBB);
+		BeenCloned.push_back(NewBB);
+	}
+
+	//remap value used inside loop
+	vector<BasicBlock *>::iterator itVecBegin = BeenCloned.begin();
+	vector<BasicBlock *>::iterator itVecEnd = BeenCloned.end();
+
+	for(; itVecBegin != itVecEnd; itVecBegin ++)
+	{
+		for(BasicBlock::iterator II = (*itVecBegin)->begin(); II != (*itVecBegin)->end(); II ++ )
+		{
+			//II->dump();
+			RemapInstruction(II, VMap);
+		}
+	}
+
+	//add to the else if body
+	BasicBlock * pElseBody = vecAdd[1];
+
+	BasicBlock * pClonedHeader = cast<BasicBlock>(VMap[pLoop->getHeader()]);
+
+	BranchInst::Create(pClonedHeader, pElseBody);
+
+	//errs() << pPreHeader->getName() << "\n";
+	for(BasicBlock::iterator II = pClonedHeader->begin(); II != pClonedHeader->end(); II ++ )
+	{
+		if(PHINode * pPHI = dyn_cast<PHINode>(II))
+		{
+			vector<int> vecToRemoved;
+			for (unsigned i = 0, e = pPHI->getNumIncomingValues(); i != e; ++i) 
+			{
+				if(pPHI->getIncomingBlock(i) == pPreHeader)
+				{
+					pPHI->setIncomingBlock(i, pElseBody);
+				}
+			}
+		}
+	}
+
+	set<BasicBlock *> setProcessedBlock;
+
+	for(unsigned long i = 0; i < ExitBlocks.size(); i++ )
+	{
+		if(setProcessedBlock.find(ExitBlocks[i]) != setProcessedBlock.end() )
+		{
+			continue;
+		}
+		else
+		{
+			setProcessedBlock.insert(ExitBlocks[i]);
+		}
+
+		for(BasicBlock::iterator II = ExitBlocks[i]->begin(); II != ExitBlocks[i]->end(); II ++ )
+		{
+			if(PHINode * pPHI = dyn_cast<PHINode>(II))
+			{
+				unsigned numIncomming = pPHI->getNumIncomingValues();
+				for(unsigned i = 0; i<numIncomming; i++)
+				{
+					BasicBlock * incommingBlock = pPHI->getIncomingBlock(i);
+					if(VMap.find(incommingBlock) != VMap.end() )
+					{
+						Value * incommingValue = pPHI->getIncomingValue(i);
+
+						if(VMap.find(incommingValue) != VMap.end() )
+						{
+							incommingValue = VMap[incommingValue];
+						}
+
+						pPHI->addIncoming(incommingValue, cast<BasicBlock>(VMap[incommingBlock]));
+
+					}
+				} 
+
+			}
+		}
+	}
+}
 
 void WorklessInstrument::InstrumentWorkless0Star1(Module * pModule, Loop * pLoop)
 {
@@ -173,19 +550,89 @@ void WorklessInstrument::InstrumentWorkless0Star1(Module * pModule, Loop * pLoop
 		pMain = pModule->getFunction("main");
 	}
 
-	
-
 	LoadInst * pLoad;
 	BinaryOperator* pAdd = NULL;
 	StoreInst * pStore = NULL;
 
 	for (Function::iterator BB = pMain->begin(); BB != pMain->end(); ++BB) 
 	{
+		if(BB->getName().equals("entry"))
+		{
+			CallInst * pCall;
+			StoreInst * pStore;
+
+			Instruction * II = BB->begin();
+			pCall = CallInst::Create(this->InitHooks, "", II);
+			pCall->setCallingConv(CallingConv::C);
+			pCall->setTailCall(false);
+			AttributeSet emptySet;
+			pCall->setAttributes(emptySet);
+
+			pCall = CallInst::Create(this->getenv, this->SAMPLE_RATE_ptr, "", II);
+			pCall->setCallingConv(CallingConv::C);
+			pCall->setTailCall(false);
+			AttributeSet AS;
+			{
+				SmallVector<AttributeSet, 4> Attrs;
+				AttributeSet PAS;
+				{
+					AttrBuilder B;
+					B.addAttribute(Attribute::NoUnwind);
+					PAS = AttributeSet::get(pModule->getContext(), ~0U, B);
+				}
+				Attrs.push_back(PAS);
+				AS = AttributeSet::get(pModule->getContext(), Attrs);
+			}
+			pCall->setAttributes(AS);
+
+			pCall = CallInst::Create(this->function_atoi, pCall, "", II);
+			pCall->setCallingConv(CallingConv::C);
+			pCall->setTailCall(false);
+			{
+  				SmallVector<AttributeSet, 4> Attrs;
+   				AttributeSet PAS;
+    			{
+    	 			AttrBuilder B;
+     				B.addAttribute(Attribute::NoUnwind);
+     				B.addAttribute(Attribute::ReadOnly);
+     				PAS = AttributeSet::get(pModule->getContext(), ~0U, B);
+    			}
+   
+   				Attrs.push_back(PAS);
+   				AS = AttributeSet::get(pModule->getContext(), Attrs);
+   
+  			}
+  			pCall->setAttributes(AS);
+
+  			pStore = new StoreInst(pCall, this->SAMPLE_RATE, false, II);
+  			pStore->setAlignment(4);
+
+  			pCall = CallInst::Create(this->geo, pCall, "", II);
+  			pCall->setCallingConv(CallingConv::C);
+  			pCall->setTailCall(false);
+  			pCall->setAttributes(emptySet);
+
+  			CastInst * pCast = CastInst::CreateIntegerCast(pCall, this->LongType, true, "", II);
+  			pStore = new StoreInst(pCast, this->CURRENT_SAMPLE, false, II);
+  			pStore->setAlignment(8);
+
+  			vector<Value *> vecParam;
+  			vecParam.push_back(this->Output_Format_String);
+  			vecParam.push_back(pCall);
+  			pCall = CallInst::Create(this->printf, vecParam, "", II);
+  			pCall->setCallingConv(CallingConv::C);
+  			pCall->setTailCall(false);
+  			pCall->setAttributes(emptySet);
+  			break;
+		}
+	}
+
+	for (Function::iterator BB = pMain->begin(); BB != pMain->end(); ++BB) 
+	{		
 		for (BasicBlock::iterator Ins = BB->begin(); Ins != BB->end(); ++Ins) 
 		{
 			if (isa<ReturnInst>(Ins) || isa<ResumeInst>(Ins)) 
 			{
-			
 				vector<Value*> vecParams;
 				pLoad = new LoadInst(numIterations, "", false, Ins); 
 				pLoad->setAlignment(8); 
@@ -230,61 +677,34 @@ void WorklessInstrument::InstrumentWorkless0Star1(Module * pModule, Loop * pLoop
 		}
 	}
 
-	BasicBlock * pPreHeader = pLoop->getLoopPreheader();
-	
-	assert(pPreHeader != NULL);
-	/*
-	if(pPreHeader == NULL)
-	{
-		SmallVector<BasicBlock*, 8> OutsideBlocks;
-		BasicBlock * pHeader = pLoop->getHeader();
-		for(pred_iterator PI = pred_begin(pHeader), PE = pred_end(pHeader); PI != PE; ++PI)
-		{
-			BasicBlock *P = *PI;
-			if(!pLoop->contains(P))
-			{
-				if(isa<IndirectBrInst>(P->getTerminator()))
-				{
-					errs() << "IndirectBrInst toward loop header\n";
-					exit(0);
-				}
 
-				OutsideBlocks.push_back(P);
-			}
-		}
 
-		if(!pHeader->isLandingPad())
-		{
-			pPreHeader = SplitBlockPredecessors(pHeader, OutsideBlocks, ".workless", this);
-		}
-		else
-		{
-			errs() << "Header isLandingPad!\n" ;
-			exit(0);
-		}
-	}
-	*/
+	BasicBlock * pHeader = pLoop->getHeader();
+	set<BasicBlock *> setExitBlock;
+	CollectExitBlock(pLoop, setExitBlock);
 
-	pLoad = new LoadInst(this->numInstances, "", false, pPreHeader->getTerminator());
-	pLoad->setAlignment(8);
-	pAdd = BinaryOperator::Create(Instruction::Add, pLoad, this->ConstantLong1, "add", pPreHeader->getTerminator());
-	pStore = new StoreInst(pAdd, this->numInstances, false, pPreHeader->getTerminator());
-	pStore->setAlignment(8);
+	vector<BasicBlock *> vecAdded;
+	CreateIfElseBlock(pLoop, vecAdded);
 
+	ValueToValueMapTy  VMap;
+	set<BasicBlock *> setCloned;
+	CloneInnerLoop(pLoop, vecAdded, VMap, setCloned);
+
+	BasicBlock * pPreHeader = vecAdded[1];
 	pLoad = new LoadInst(this->numIterations, "", false, pPreHeader->getTerminator());
 	pLoad->setAlignment(8);
 
-	BasicBlock * pHeader = pLoop->getHeader();
+	BasicBlock * pClonedHeader = cast<BasicBlock>(VMap[pHeader]);
 
 	set<BasicBlock *> setPredBlocks;
 
-	for(pred_iterator PI = pred_begin(pHeader), E = pred_end(pHeader); PI != E; ++PI)
+	for(pred_iterator PI = pred_begin(pClonedHeader), E = pred_end(pClonedHeader); PI != E; ++PI)
 	{
 		setPredBlocks.insert(*PI);
 	}
 
-	PHINode * pNew = PHINode::Create(pLoad->getType(), setPredBlocks.size(), "numIterations", pHeader->getFirstInsertionPt());
-	pAdd = BinaryOperator::Create(Instruction::Add, pNew, this->ConstantLong1, "add", pHeader->getFirstInsertionPt());
+	PHINode * pNew = PHINode::Create(pLoad->getType(), setPredBlocks.size(), "numIterations", pClonedHeader->getFirstInsertionPt());
+	pAdd = BinaryOperator::Create(Instruction::Add, pNew, this->ConstantLong1, "add", pClonedHeader->getFirstInsertionPt());
 
 	set<BasicBlock *>::iterator itSetBegin = setPredBlocks.begin();
 	set<BasicBlock *>::iterator itSetEnd   = setPredBlocks.end();
@@ -301,28 +721,30 @@ void WorklessInstrument::InstrumentWorkless0Star1(Module * pModule, Loop * pLoop
 		}
 	}
 
-	set<BasicBlock *> setExitBlock;
-	CollectExitBlock(pLoop, setExitBlock);
 
 	itSetBegin = setExitBlock.begin();
 	itSetEnd   = setExitBlock.end();
 
 	for(; itSetBegin != itSetEnd; itSetBegin ++ )
 	{
-		pStore = new StoreInst(pAdd, this->numIterations, false, (*itSetBegin)->getFirstInsertionPt());
+		SmallVector<BasicBlock*, 8> LoopBlocks;
+
+		for(pred_iterator PI = pred_begin(*itSetBegin), E = pred_end(*itSetBegin); PI != E; ++PI)
+		{
+			if(setCloned.find(*PI) != setCloned.end())
+			{
+				LoopBlocks.push_back(*PI);
+			}
+		}
+
+		BasicBlock * NewExitBB = SplitBlockPredecessors(*itSetBegin, LoopBlocks, ".WL.loopexit", this);
+
+		pStore = new StoreInst(pAdd, this->numIterations, false, NewExitBB->getFirstInsertionPt());
 		pStore->setAlignment(8);
 	}
-	
-/*	
-	BasicBlock * pHeader = pLoop->getHeader();
-	pLoad = new LoadInst(this->numIterations, "", false, pHeader->getTerminator());
-	pLoad->setAlignment(8);
-	pAdd = BinaryOperator::Create(Instruction::Add, pLoad, this->ConstantLong1, "add", pHeader->getTerminator());
-	pStore = new StoreInst(pAdd, this->numIterations, false, pHeader->getTerminator());
-	pStore->setAlignment(8);
-*/
 
-	//pLoop->getHeader()->getParent()->dump();
+	pPreHeader->getParent()->dump();
+
 }
 
 //void WorklessInstrument::InstrumentWorkless0Star1OPT(Module * pModule, Loop * pLoop)
@@ -379,7 +801,7 @@ void WorklessInstrument::InstrumentWorkless0Or1Star(Module * pModule, Loop * pLo
 {
 	LoadInst * pLoad0 = NULL;
 	LoadInst * pLoad1 = NULL;
-	BinaryOperator* pAdd = NULL;
+	//BinaryOperator* pAdd = NULL;
 	StoreInst * pStore = NULL;
 	CallInst * pCall = NULL;
 
@@ -392,7 +814,79 @@ void WorklessInstrument::InstrumentWorkless0Or1Star(Module * pModule, Loop * pLo
 	else
 	{
 		pMain = pModule->getFunction("main");
-		//pMain->dump();
+	}
+
+	for (Function::iterator BB = pMain->begin(); BB != pMain->end(); ++BB) 
+	{
+		if(BB->getName().equals("entry"))
+		{
+			CallInst * pCall;
+			StoreInst * pStore;
+
+			Instruction * II = BB->begin();
+			pCall = CallInst::Create(this->InitHooks, "", II);
+			pCall->setCallingConv(CallingConv::C);
+			pCall->setTailCall(false);
+			AttributeSet emptySet;
+			pCall->setAttributes(emptySet);
+
+			pCall = CallInst::Create(this->getenv, this->SAMPLE_RATE_ptr, "", II);
+			pCall->setCallingConv(CallingConv::C);
+			pCall->setTailCall(false);
+			AttributeSet AS;
+			{
+				SmallVector<AttributeSet, 4> Attrs;
+				AttributeSet PAS;
+				{
+					AttrBuilder B;
+					B.addAttribute(Attribute::NoUnwind);
+					PAS = AttributeSet::get(pModule->getContext(), ~0U, B);
+				}
+				Attrs.push_back(PAS);
+				AS = AttributeSet::get(pModule->getContext(), Attrs);
+			}
+			pCall->setAttributes(AS);
+
+			pCall = CallInst::Create(this->function_atoi, pCall, "", II);
+			pCall->setCallingConv(CallingConv::C);
+			pCall->setTailCall(false);
+			{
+  				SmallVector<AttributeSet, 4> Attrs;
+   				AttributeSet PAS;
+    			{
+    	 			AttrBuilder B;
+     				B.addAttribute(Attribute::NoUnwind);
+     				B.addAttribute(Attribute::ReadOnly);
+     				PAS = AttributeSet::get(pModule->getContext(), ~0U, B);
+    			}
+   
+   				Attrs.push_back(PAS);
+   				AS = AttributeSet::get(pModule->getContext(), Attrs);
+   
+  			}
+  			pCall->setAttributes(AS);
+
+  			pStore = new StoreInst(pCall, this->SAMPLE_RATE, false, II);
+  			pStore->setAlignment(4);
+
+  			pCall = CallInst::Create(this->geo, pCall, "", II);
+  			pCall->setCallingConv(CallingConv::C);
+  			pCall->setTailCall(false);
+  			pCall->setAttributes(emptySet);
+
+  			CastInst * pCast = CastInst::CreateIntegerCast(pCall, this->LongType, true, "", II);
+  			pStore = new StoreInst(pCast, this->CURRENT_SAMPLE, false, II);
+  			pStore->setAlignment(8);
+
+  			vector<Value *> vecParam;
+  			vecParam.push_back(this->Output_Format_String);
+  			vecParam.push_back(pCall);
+  			pCall = CallInst::Create(this->printf, vecParam, "", II);
+  			pCall->setCallingConv(CallingConv::C);
+  			pCall->setTailCall(false);
+  			pCall->setAttributes(emptySet);
+  			break;
+		}
 	}
 
 	for (Function::iterator BB = pMain->begin(); BB != pMain->end(); ++BB) 
@@ -428,6 +922,7 @@ void WorklessInstrument::InstrumentWorkless0Or1Star(Module * pModule, Loop * pLo
 				pCall->setCallingConv(CallingConv::C);
 				pCall->setTailCall(false);
 				pCall->setAttributes(aSet);
+
 			}
 			else if(isa<CallInst>(Ins) || isa<InvokeInst>(Ins))
 			{
@@ -487,41 +982,53 @@ void WorklessInstrument::InstrumentWorkless0Or1Star(Module * pModule, Loop * pLo
 		}
 	}
 
+	errs() << "working block number: " << vecWorkingBlock.size() << "\n";
+
+	BasicBlock * pHeader = pLoop->getHeader();
+	set<BasicBlock *> setExitBlock;
+	CollectExitBlock(pLoop, setExitBlock);
+
+	vector<BasicBlock *> vecAdded;
+	CreateIfElseBlock(pLoop, vecAdded);
+
+	ValueToValueMapTy  VMap;
+	set<BasicBlock *> setCloned;
+	CloneInnerLoop(pLoop, vecAdded, VMap, setCloned);
+
+	//BasicBlock * pPreHeader = vecAdded[0];
+	BasicBlock * pElseBody = vecAdded[1];
+	
 	vector<BasicBlock *>::iterator itVecBegin = vecWorkingBlock.begin();
 	vector<BasicBlock *>::iterator itVecEnd   = vecWorkingBlock.end();
 
 	for(; itVecBegin != itVecEnd; itVecBegin++ )
 	{
-		pStore = new StoreInst(this->ConstantLong1, pAlloc, false, (*itVecBegin)->getFirstInsertionPt());
-		//pStore->setAlignment(8);
+		BasicBlock * pClonedBlock = cast<BasicBlock>(VMap[*itVecBegin]);
+		pStore = new StoreInst(this->ConstantLong1, pAlloc, false, pClonedBlock->getFirstInsertionPt());
+		pStore->setAlignment(8);
+		pClonedBlock->dump();
 	}
 
-	BasicBlock * pPreHeader = pLoop->getLoopPreheader();
 
-	pLoad0 = new LoadInst(this->numInstances, "", false, pPreHeader->getTerminator());
-	pLoad0->setAlignment(8);
-	pAdd = BinaryOperator::Create(Instruction::Add, pLoad0, this->ConstantLong1, "add", pPreHeader->getTerminator());
-	pStore = new StoreInst(pAdd, this->numInstances, false, pPreHeader->getTerminator());
+	pStore = new StoreInst(this->ConstantLong0, pAlloc, false, pElseBody->getTerminator());
 	pStore->setAlignment(8);
-	pStore = new StoreInst(this->ConstantLong0, pAlloc, false, pPreHeader->getTerminator());
-	//pStore->setAlignment(8);
 
-	pLoad0 = new LoadInst(this->numIterations, "", false, pPreHeader->getTerminator());
+	pLoad0 = new LoadInst(this->numIterations, "", false, pElseBody->getTerminator());
 	pLoad0->setAlignment(8);
 
-	pLoad1 = new LoadInst(this->numWorkingIterations, "", false, pPreHeader->getTerminator());
+	pLoad1 = new LoadInst(this->numWorkingIterations, "", false, pElseBody->getTerminator());
 	pLoad1->setAlignment(8);  
 
-	BasicBlock * pHeader = pLoop->getHeader();
+	BasicBlock * pClonedHeader = cast<BasicBlock>(VMap[pHeader]);
 
 	set<BasicBlock *> setPredBlocks;
 
-	for(pred_iterator PI = pred_begin(pHeader), E = pred_end(pHeader); PI != E; ++PI)
+	for(pred_iterator PI = pred_begin(pClonedHeader), E = pred_end(pClonedHeader); PI != E; ++PI)
 	{
 		setPredBlocks.insert(*PI);
 	}
 
-	BasicBlock::iterator itInsert = pHeader->getFirstInsertionPt();
+	BasicBlock::iterator itInsert = pClonedHeader->getFirstInsertionPt();
 
 	PHINode * pNewIterations = PHINode::Create(pLoad0->getType(), setPredBlocks.size(), "numIterations.2", itInsert);
 	PHINode * pNewWorkingIterations = PHINode::Create(pLoad1->getType(), setPredBlocks.size(), "WorkingIterations.2", itInsert);
@@ -533,9 +1040,9 @@ void WorklessInstrument::InstrumentWorkless0Or1Star(Module * pModule, Loop * pLo
 
 	for(; itSetBegin != itSetEnd; itSetBegin ++ )
 	{
-		if((*itSetBegin) == pPreHeader)
+		if((*itSetBegin) == pElseBody)
 		{
-			pNewIterations->addIncoming(pLoad0, pPreHeader);
+			pNewIterations->addIncoming(pLoad0, pElseBody);
 		}
 		else
 		{
@@ -551,9 +1058,9 @@ void WorklessInstrument::InstrumentWorkless0Or1Star(Module * pModule, Loop * pLo
 
 	for(; itSetBegin != itSetEnd; itSetBegin ++ )
 	{
-		if((*itSetBegin) == pPreHeader)
+		if((*itSetBegin) == pElseBody)
 		{
-			pNewWorkingIterations->addIncoming(pLoad1, pPreHeader);
+			pNewWorkingIterations->addIncoming(pLoad1, pElseBody);
 		}
 		else
 		{
@@ -562,31 +1069,41 @@ void WorklessInstrument::InstrumentWorkless0Or1Star(Module * pModule, Loop * pLo
 	}
 
 	pStore = new StoreInst(this->ConstantLong0, pAlloc, false, itInsert);
+	pStore->setAlignment(8);
 
-	set<BasicBlock *> setExitBlock;
-	CollectExitBlock(pLoop, setExitBlock);
 
 	itSetBegin = setExitBlock.begin();
 	itSetEnd   = setExitBlock.end();
 
 	for(; itSetBegin != itSetEnd; itSetBegin ++ )
 	{
-		pStore = new StoreInst(pIterationAdd, this->numIterations, false, (*itSetBegin)->getFirstInsertionPt());
+		SmallVector<BasicBlock*, 8> LoopBlocks;
+
+		for(pred_iterator PI = pred_begin(*itSetBegin), E = pred_end(*itSetBegin); PI != E; ++PI)
+		{
+			if(setCloned.find(*PI) != setCloned.end())
+			{
+				LoopBlocks.push_back(*PI);
+			}
+		}
+
+		BasicBlock * NewExitBB = SplitBlockPredecessors(*itSetBegin, LoopBlocks, ".WL.loopexit", this);
+
+		pStore = new StoreInst(pIterationAdd, this->numIterations, false, NewExitBB->getFirstInsertionPt());
 		pStore->setAlignment(8);
 
-		pStore = new StoreInst(pWorkingAdd, this->numWorkingIterations, false, (*itSetBegin)->getFirstInsertionPt());
+		pStore = new StoreInst(pWorkingAdd, this->numWorkingIterations, false, NewExitBB->getFirstInsertionPt());
 		pStore->setAlignment(8);
 	}
 
 	//pFunction->dump();
-
 
 	DominatorTree * DT = &(getAnalysis<DominatorTree>(*pFunction));
 	vector<AllocaInst *> vecAlloc;
 	vecAlloc.push_back(pAlloc);
 	PromoteMemToReg(vecAlloc, *DT);
 
-	//pLoop->getHeader()->getParent()->dump();
+	pFunction->dump();
 }
 
 void WorklessInstrument::ParseWorkingBlocks(set<string> & setWorkingBlocks)
@@ -619,7 +1136,6 @@ void WorklessInstrument::ParseWorkingBlocks(set<string> & setWorkingBlocks)
 
 bool WorklessInstrument::runOnModule(Module& M)
 {
-	
 	Function * pFunction = SearchFunctionByName(M, strFileName, strFuncName, uSrcLine);
 	if(pFunction == NULL)
 	{
@@ -639,6 +1155,7 @@ bool WorklessInstrument::runOnModule(Module& M)
 	SetupTypes(&M);
 	SetupConstants(&M);
 	SetupHooks(&M);
+	SetupGlobals(&M);
 
 	BasicBlock * pHeader = pLoop->getHeader();
 
@@ -664,8 +1181,6 @@ bool WorklessInstrument::runOnModule(Module& M)
 	{
 		errs() << "Wrong Workless Instrument Type\n";
 	}
-
-	//pFunction->dump();
 
 	return true;
 }

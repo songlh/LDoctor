@@ -2,7 +2,6 @@
 #define _H_SONGLH_WORKLESS
 
 #include "llvm/Pass.h"
-#include "llvm/Transforms/Utils/ValueMapper.h"
 
 #include <string>
 #include <set>
@@ -23,13 +22,8 @@ struct WorklessInstrument : public ModulePass
 	void SetupTypes(Module * );
 	void SetupConstants(Module * pModule);
 	void SetupHooks(Module * );
-	void SetupGlobals(Module * pModule);
 
 	void ParseWorkingBlocks(set<string> & setWorkingBlocks);
-
-	void CreateIfElseBlock(Loop * pLoop, vector<BasicBlock *> & vecAdded);
-	void RemapInstruction(Instruction *I, ValueToValueMapTy &VMap); 
-	void CloneInnerLoop(Loop * pLoop, vector<BasicBlock *> & vecAdd, ValueToValueMapTy & VMap, set<BasicBlock *> & setCloned);
 
 	void InstrumentWorkless0Star1(Module * pModule, Loop * pLoop);
 	void InstrumentWorkless0Or1Star(Module * pModule, Loop * pLoop, set<string> & setWorkingBlocks);
@@ -47,27 +41,12 @@ struct WorklessInstrument : public ModulePass
 //function
 	Function * PrintLoopInfo;
 	Function * PrintWorkingRatio ;
-	Function * getenv;
-	Function * function_atoi;
-	Function * printf;
-	Function * geo;
-	Function * func_llvm_memcpy;
-	Function * InitHooks;
 
 //globalvariable
 	GlobalVariable * numIterations;
 	GlobalVariable * numInstances ;
 	GlobalVariable * numWorkingIterations ;
 	GlobalVariable * bWorkingIteration ;
-
-	GlobalVariable * SAMPLE_RATE;
-	GlobalVariable * numGlobalCounter;
-	GlobalVariable * PC_SAMPLE_RATE;
-	GlobalVariable * CURRENT_SAMPLE;
-
-
-	Constant * SAMPLE_RATE_ptr;
-	Constant * Output_Format_String;
 
 //constants
 	ConstantInt * ConstantInt0;
@@ -91,9 +70,6 @@ struct WorklessInstrument : public ModulePass
 
 	
 	ConstantPointerNull * ConstantNULL;
-
-
-	//global
 
 
 };

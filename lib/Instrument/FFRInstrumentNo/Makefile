@@ -7,7 +7,7 @@ LEVEL=../../..
 #
 # Give the name of a library.  This will build a dynamic version.
 #
-LIBRARYNAME=WLInstrumentSample
+LIBRARYNAME=FFRInstrumentNo
 
 #ifneq ($(OS),Cygwin)
 #ifneq ($(OS),MingW)
@@ -16,7 +16,7 @@ LOADABLE_MODULE := 1
 #endif
 #endif
 
-USEDLIBS = Search.a Loop.a
+USEDLIBS = Search.a Utility.a Config.a Clone.a
 
 #
 # Include Makefile.common so we know what to do.

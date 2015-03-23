@@ -2397,7 +2397,10 @@ void CrossLoopInstrument::InstrumentInnerLoop(Loop * pInnerLoop, PostDominatorTr
 
 void CrossLoopInstrument::ParseInstFile(Function * pInnerFunction, Module * pModule)
 {
+	//errs() << strMonitorInstFile << "\n";
 	ParseFeaturedInstFile(strMonitorInstFile, pModule, this->MonitoredElems);
+
+	//errs() << this->MonitoredElems.vecFileContent.size() << "\n";
 
 	for(size_t i = 0; i < this->MonitoredElems.vecFileContent.size(); i ++ )
 	{
@@ -2405,6 +2408,8 @@ void CrossLoopInstrument::ParseInstFile(Function * pInnerFunction, Module * pMod
 		if(PossibleArrayAccess(this->MonitoredElems.vecFileContent[i], vecIndex))
 		{
 			LoadInst * pLoad = cast<LoadInst>(SearchLineValue(this->MonitoredElems.vecFileContent[i][0], pInnerFunction));
+
+			//pLoad->dump();
 
 			set<Value *> setBase;
 			for(size_t j = 0; j < vecIndex[0].size(); j ++ )
@@ -2435,22 +2440,15 @@ void CrossLoopInstrument::ParseInstFile(Function * pInnerFunction, Module * pMod
 
 			this->PossibleSkipLoadInfoMapping[pLoad].push_back(setIndex);
 
-/*
-			for(size_t j = 0; j < this->MonitoredElems.vecFileContent[i].size(); j ++ )
-			{
-				if(this->MonitoredElems.vecFileContent[i][j].find("//---Trip Counter") == 0 )
-				{
-					Value * pTripCounter = SearchLineValue(this->MonitoredElems.vecFileContent[i][j+1], pInnerFunction);
-					this->PossibleSkipLoadTripCounter[pLoad] = pTripCounter;
-				}
-			}
-*/
 		}
 	}
+
+	//exit(0);
 }
 
 bool CrossLoopInstrument::runOnModule(Module& M)
 {
+
 	if(strLibrary != "" )
 	{
 		ParseLibraryFunctionFile(strLibrary, &M, this->LibraryTypeMapping);
