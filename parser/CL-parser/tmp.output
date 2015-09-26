@@ -1,0 +1,1989 @@
+Total Load: 13334770
+Total Instruction: 1488
+Total Parameter: 496
+Total Exeuction: 496
+
+Instance 1292 1293
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 1288 1289
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 1288 1289
+*******************************************************
+Instance 19 20
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 1308 1309
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 1308 1309
+*******************************************************
+Instance 32 33
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 1341 1342
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 1341 1342
+*******************************************************
+Instance 208 209
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 1550 1551
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 1550 1551
+*******************************************************
+Instance 10 11
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 1561 1562
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 1561 1562
+*******************************************************
+Instance 400 401
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 1962 1963
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 1962 1963
+*******************************************************
+Instance 263 264
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 2226 2227
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 2226 2227
+*******************************************************
+Instance 62 63
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 2289 2290
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 2289 2290
+*******************************************************
+Instance 40 41
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 2330 2331
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 2330 2331
+*******************************************************
+Instance 401 402
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 2732 2733
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 2732 2733
+*******************************************************
+Instance 120 121
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 2853 2854
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 2853 2854
+*******************************************************
+Instance 225 226
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 3079 3080
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 3079 3080
+*******************************************************
+Instance 72 73
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 3152 3153
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 3152 3153
+*******************************************************
+Instance 42 43
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 3195 3196
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 3195 3196
+*******************************************************
+Instance 126 127
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 3322 3323
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 3322 3323
+*******************************************************
+Instance 209 210
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 3532 3533
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 3532 3533
+*******************************************************
+Instance 306 307
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 3839 3840
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 3839 3840
+*******************************************************
+Instance 132 133
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 3972 3973
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 3972 3973
+*******************************************************
+Instance 126 127
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 4099 4100
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 4099 4100
+*******************************************************
+Instance 356 357
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 4456 4457
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 4456 4457
+*******************************************************
+Instance 281 282
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 4738 4739
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 4738 4739
+*******************************************************
+Instance 245 246
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 4984 4985
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 4984 4985
+*******************************************************
+Instance 711 712
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 5696 5697
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 5696 5697
+*******************************************************
+Instance 243 244
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 5940 5941
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 5940 5941
+*******************************************************
+Instance 73 74
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 6014 6015
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 6014 6015
+*******************************************************
+Instance 44 45
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 6059 6060
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 6059 6060
+*******************************************************
+Instance 428 429
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 6488 6489
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 6488 6489
+*******************************************************
+Instance 40 41
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 6529 6530
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 6529 6530
+*******************************************************
+Instance 10 11
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 6540 6541
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 6540 6541
+*******************************************************
+Instance 401 402
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 6942 6943
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 6942 6943
+*******************************************************
+Instance 220 221
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 7163 7164
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 7163 7164
+*******************************************************
+Instance 375 376
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 7539 7540
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 7539 7540
+*******************************************************
+Instance 71 72
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 7611 7612
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 7611 7612
+*******************************************************
+Instance 210 211
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 7822 7823
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 7822 7823
+*******************************************************
+Instance 960 961
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 8783 8784
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 8783 8784
+*******************************************************
+Instance 83 84
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 8867 8868
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 8867 8868
+*******************************************************
+Instance 93 94
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 8961 8962
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 8961 8962
+*******************************************************
+Instance 869 870
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 9831 9832
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 9831 9832
+*******************************************************
+Instance 290 291
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 10122 10123
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 10122 10123
+*******************************************************
+Instance 6 7
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 10129 10130
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 10129 10130
+*******************************************************
+Instance 81 82
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 10211 10212
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 10211 10212
+*******************************************************
+Instance 115 116
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 10327 10328
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 10327 10328
+*******************************************************
+Instance 202 203
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 10530 10531
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 10530 10531
+*******************************************************
+Instance 178 179
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 10709 10710
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 10709 10710
+*******************************************************
+Instance 210 211
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 10920 10921
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 10920 10921
+*******************************************************
+Instance 228 229
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 11149 11150
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 11149 11150
+*******************************************************
+Instance 168 169
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 11318 11319
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 11318 11319
+*******************************************************
+Instance 249 250
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 11568 11569
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 11568 11569
+*******************************************************
+Instance 65 66
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 11634 11635
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 11634 11635
+*******************************************************
+Instance 6 7
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 11641 11642
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 11641 11642
+*******************************************************
+Instance 1 2
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 11643 11644
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 11643 11644
+*******************************************************
+Instance 435 436
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 12079 12080
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 12079 12080
+*******************************************************
+Instance 35 36
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 12115 12116
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 12115 12116
+*******************************************************
+Instance 370 371
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 12486 12487
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 12486 12487
+*******************************************************
+Instance 51 52
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 12538 12539
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 12538 12539
+*******************************************************
+Instance 45 46
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 12584 12585
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 12584 12585
+*******************************************************
+Instance 34 35
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 12619 12620
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 12619 12620
+*******************************************************
+Instance 36 37
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 12656 12657
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 12656 12657
+*******************************************************
+Instance 434 435
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 13091 13092
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 13091 13092
+*******************************************************
+Instance 15 16
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 13107 13108
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 13107 13108
+*******************************************************
+Instance 306 307
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 13414 13415
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 13414 13415
+*******************************************************
+Instance 188 189
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 13603 13604
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 13603 13604
+*******************************************************
+Instance 69 70
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 13673 13674
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 13673 13674
+*******************************************************
+Instance 33 34
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 13707 13708
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 13707 13708
+*******************************************************
+Instance 200 201
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 13908 13909
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 13908 13909
+*******************************************************
+Instance 232 233
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 14141 14142
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 14141 14142
+*******************************************************
+Instance 169 170
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 14311 14312
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 14311 14312
+*******************************************************
+Instance 27 28
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 14339 14340
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 14339 14340
+*******************************************************
+Instance 69 70
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 14409 14410
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 14409 14410
+*******************************************************
+Instance 128 129
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 14538 14539
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 14538 14539
+*******************************************************
+Instance 90 91
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 14629 14630
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 14629 14630
+*******************************************************
+Instance 79 80
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 14709 14710
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 14709 14710
+*******************************************************
+Instance 107 108
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 14817 14818
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 14817 14818
+*******************************************************
+Instance 762 763
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 15580 15581
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 15580 15581
+*******************************************************
+Instance 204 205
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 15785 15786
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 15785 15786
+*******************************************************
+Instance 140 141
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 15926 15927
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 15926 15927
+*******************************************************
+Instance 197 198
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 16124 16125
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 16124 16125
+*******************************************************
+Instance 29 30
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 16154 16155
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 16154 16155
+*******************************************************
+Instance 799 800
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 16954 16955
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 16954 16955
+*******************************************************
+Instance 63 64
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 17018 17019
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 17018 17019
+*******************************************************
+Instance 504 505
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 17523 17524
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 17523 17524
+*******************************************************
+Instance 73 74
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 17597 17598
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 17597 17598
+*******************************************************
+Instance 414 415
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 18012 18013
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 18012 18013
+*******************************************************
+Instance 94 95
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 18107 18108
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 18107 18108
+*******************************************************
+Instance 621 622
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 18729 18730
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 18729 18730
+*******************************************************
+Instance 780 781
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 19510 19511
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 19510 19511
+*******************************************************
+Instance 662 663
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 20173 20174
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 20173 20174
+*******************************************************
+Instance 20 21
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 20194 20195
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 20194 20195
+*******************************************************
+Instance 23 24
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 20218 20219
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 20218 20219
+*******************************************************
+Instance 603 604
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 20822 20823
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 20822 20823
+*******************************************************
+Instance 13 14
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 20836 20837
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 20836 20837
+*******************************************************
+Instance 213 214
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 21050 21051
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 21050 21051
+*******************************************************
+Instance 379 380
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 21430 21431
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 21430 21431
+*******************************************************
+Instance 432 433
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 21863 21864
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 21863 21864
+*******************************************************
+Instance 160 161
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 22024 22025
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 22024 22025
+*******************************************************
+Instance 84 85
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 22109 22110
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 22109 22110
+*******************************************************
+Instance 343 344
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 22453 22454
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 22453 22454
+*******************************************************
+Instance 51 52
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 22505 22506
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 22505 22506
+*******************************************************
+Instance 577 578
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 23083 23084
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 23083 23084
+*******************************************************
+Instance 37 38
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 23121 23122
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 23121 23122
+*******************************************************
+Instance 33 34
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 23155 23156
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 23155 23156
+*******************************************************
+Instance 343 344
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 23499 23500
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 23499 23500
+*******************************************************
+Instance 109 110
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 23609 23610
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 23609 23610
+*******************************************************
+Instance 407 408
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 24017 24018
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 24017 24018
+*******************************************************
+Instance 252 253
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 24270 24271
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 24270 24271
+*******************************************************
+Instance 97 98
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 24368 24369
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 24368 24369
+*******************************************************
+Instance 520 521
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 24889 24890
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 24889 24890
+*******************************************************
+Instance 134 135
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 25024 25025
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 25024 25025
+*******************************************************
+Instance 250 251
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 25275 25276
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 25275 25276
+*******************************************************
+Instance 321 322
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 25597 25598
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 25597 25598
+*******************************************************
+Instance 316 317
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 25914 25915
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 25914 25915
+*******************************************************
+Instance 177 178
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 26092 26093
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 26092 26093
+*******************************************************
+Instance 275 276
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 26368 26369
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 26368 26369
+*******************************************************
+Instance 149 150
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 26518 26519
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 26518 26519
+*******************************************************
+Instance 469 470
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 26988 26989
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 26988 26989
+*******************************************************
+Instance 26 27
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 27015 27016
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 27015 27016
+*******************************************************
+Instance 149 150
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 27165 27166
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 27165 27166
+*******************************************************
+Instance 19 20
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 27185 27186
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 27185 27186
+*******************************************************
+Instance 46 47
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 27232 27233
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 27232 27233
+*******************************************************
+Instance 73 74
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 27306 27307
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 27306 27307
+*******************************************************
+Instance 16 17
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 27323 27324
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 27323 27324
+*******************************************************
+Instance 472 473
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 27796 27797
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 27796 27797
+*******************************************************
+Instance 105 106
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 27902 27903
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 27902 27903
+*******************************************************
+Instance 97 98
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 28000 28001
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 28000 28001
+*******************************************************
+Instance 244 245
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 28245 28246
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 28245 28246
+*******************************************************
+Instance 37 38
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 28283 28284
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 28283 28284
+*******************************************************
+Instance 54 55
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 28338 28339
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 28338 28339
+*******************************************************
+Instance 267 268
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 28606 28607
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 28606 28607
+*******************************************************
+Instance 91 92
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 28698 28699
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 28698 28699
+*******************************************************
+Instance 118 119
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 28817 28818
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 28817 28818
+*******************************************************
+Instance 61 62
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 28879 28880
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 28879 28880
+*******************************************************
+Instance 157 158
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 29037 29038
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 29037 29038
+*******************************************************
+Instance 97 98
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 29135 29136
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 29135 29136
+*******************************************************
+Instance 298 299
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 29434 29435
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 29434 29435
+*******************************************************
+Instance 1039 1040
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 30474 30475
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 30474 30475
+*******************************************************
+Instance 193 194
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 30668 30669
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 30668 30669
+*******************************************************
+Instance 160 161
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 30829 30830
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 30829 30830
+*******************************************************
+Instance 549 550
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 31379 31380
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 31379 31380
+*******************************************************
+Instance 79 80
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 31459 31460
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 31459 31460
+*******************************************************
+Instance 110 111
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 31570 31571
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 31570 31571
+*******************************************************
+Instance 276 277
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 31847 31848
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 31847 31848
+*******************************************************
+Instance 307 308
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 32155 32156
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 32155 32156
+*******************************************************
+Instance 116 117
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 32272 32273
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 32272 32273
+*******************************************************
+Instance 336 337
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 32609 32610
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 32609 32610
+*******************************************************
+Instance 69 70
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 32679 32680
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 32679 32680
+*******************************************************
+Instance 128 129
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 32808 32809
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 32808 32809
+*******************************************************
+Instance 13 14
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 32822 32823
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 32822 32823
+*******************************************************
+Instance 251 252
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 33074 33075
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 33074 33075
+*******************************************************
+Instance 81 82
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 33156 33157
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 33156 33157
+*******************************************************
+Instance 287 288
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 33444 33445
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 33444 33445
+*******************************************************
+Instance 176 177
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 33621 33622
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 33621 33622
+*******************************************************
+Instance 218 219
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 33840 33841
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 33840 33841
+*******************************************************
+Instance 38 39
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 33879 33880
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 33879 33880
+*******************************************************
+Instance 209 210
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 34089 34090
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 34089 34090
+*******************************************************
+Instance 23 24
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 34113 34114
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 34113 34114
+*******************************************************
+Instance 7 8
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 34121 34122
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 34121 34122
+*******************************************************
+Instance 243 244
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 34365 34366
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 34365 34366
+*******************************************************
+Instance 155 156
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 34521 34522
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 34521 34522
+*******************************************************
+Instance 316 317
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 34838 34839
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 34838 34839
+*******************************************************
+Instance 39 40
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 34878 34879
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 34878 34879
+*******************************************************
+Instance 31 32
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 34910 34911
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 34910 34911
+*******************************************************
+Instance 73 74
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 34984 34985
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 34984 34985
+*******************************************************
+Instance 641 642
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 35626 35627
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 35626 35627
+*******************************************************
+Instance 106 107
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 35733 35734
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 35733 35734
+*******************************************************
+Instance 93 94
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 35827 35828
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 35827 35828
+*******************************************************
+Instance 781 782
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 36609 36610
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 36609 36610
+*******************************************************
+Instance 5 6
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 36615 36616
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 36615 36616
+*******************************************************
+Instance 85 86
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 36701 36702
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 36701 36702
+*******************************************************
+Instance 37 38
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 36739 36740
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 36739 36740
+*******************************************************
+Instance 34 35
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 36774 36775
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 36774 36775
+*******************************************************
+Instance 150 151
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 36925 36926
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 36925 36926
+*******************************************************
+Instance 368 369
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 37294 37295
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 37294 37295
+*******************************************************
+Instance 10 11
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 37305 37306
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 37305 37306
+*******************************************************
+Instance 1 2
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 37307 37308
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 37307 37308
+*******************************************************
+Instance 6 7
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 37314 37315
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 37314 37315
+*******************************************************
+Instance 32 33
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 37347 37348
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 37347 37348
+*******************************************************
+Instance 97 98
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 37445 37446
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 37445 37446
+*******************************************************
+Instance 254 255
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 37700 37701
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 37700 37701
+*******************************************************
+Instance 73 74
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 37774 37775
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 37774 37775
+*******************************************************
+Instance 31 32
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 37806 37807
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 37806 37807
+*******************************************************
+Instance 454 455
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 38261 38262
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 38261 38262
+*******************************************************
+Instance 203 204
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 38465 38466
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 38465 38466
+*******************************************************
+Instance 123 124
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 38589 38590
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 38589 38590
+*******************************************************
+Instance 197 198
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 38787 38788
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 38787 38788
+*******************************************************
+Instance 181 182
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 38969 38970
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 38969 38970
+*******************************************************
+Instance 26 27
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 38996 38997
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 38996 38997
+*******************************************************
+Instance 570 571
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 39567 39568
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 39567 39568
+*******************************************************
+Instance 258 259
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 39826 39827
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 39826 39827
+*******************************************************
+Instance 106 107
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 39933 39934
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 39933 39934
+*******************************************************
+Instance 36 37
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 39970 39971
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 39970 39971
+*******************************************************
+Instance 79 80
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 40050 40051
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 40050 40051
+*******************************************************
+Instance 256 257
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 40307 40308
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 40307 40308
+*******************************************************
+Instance 563 564
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 40871 40872
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 40871 40872
+*******************************************************
+Instance 21 22
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 40893 40894
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 40893 40894
+*******************************************************
+Instance 554 555
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 41448 41449
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 41448 41449
+*******************************************************
+Instance 174 175
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 41623 41624
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 41623 41624
+*******************************************************
+Instance 87 88
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 41711 41712
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 41711 41712
+*******************************************************
+Instance 120 121
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 41832 41833
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 41832 41833
+*******************************************************
+Instance 153 154
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 41986 41987
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 41986 41987
+*******************************************************
+Instance 63 64
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 42050 42051
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 42050 42051
+*******************************************************
+Instance 219 220
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 42270 42271
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 42270 42271
+*******************************************************
+Instance 152 153
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 42423 42424
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 42423 42424
+*******************************************************
+Instance 784 785
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 43208 43209
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 43208 43209
+*******************************************************
+Instance 72 73
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 43281 43282
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 43281 43282
+*******************************************************
+Instance 1 2
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 43283 43284
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 43283 43284
+*******************************************************
+Instance 28 29
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 43312 43313
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 43312 43313
+*******************************************************
+Instance 214 215
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 43527 43528
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 43527 43528
+*******************************************************
+Instance 195 196
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 43723 43724
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 43723 43724
+*******************************************************
+Instance 115 116
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 43839 43840
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 43839 43840
+*******************************************************
+Instance 98 99
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 43938 43939
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 43938 43939
+*******************************************************
+Instance 76 77
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 44015 44016
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 44015 44016
+*******************************************************
+Instance 75 76
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 44091 44092
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 44091 44092
+*******************************************************
+Instance 55 56
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 44147 44148
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 44147 44148
+*******************************************************
+Instance 281 282
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 44429 44430
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 44429 44430
+*******************************************************
+Instance 4 5
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 44434 44435
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 44434 44435
+*******************************************************
+Instance 60 61
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 44495 44496
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 44495 44496
+*******************************************************
+Instance 334 335
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 44830 44831
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 44830 44831
+*******************************************************
+Instance 427 428
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 45258 45259
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 45258 45259
+*******************************************************
+Instance 55 56
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 45314 45315
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 45314 45315
+*******************************************************
+Instance 120 121
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 45435 45436
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 45435 45436
+*******************************************************
+Instance 172 173
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 45608 45609
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 45608 45609
+*******************************************************
+Instance 258 259
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 45867 45868
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 45867 45868
+*******************************************************
+Instance 35 36
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 45903 45904
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 45903 45904
+*******************************************************
+Instance 122 123
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 46026 46027
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 46026 46027
+*******************************************************
+Instance 227 228
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 46254 46255
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 46254 46255
+*******************************************************
+Instance 126 127
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 46381 46382
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 46381 46382
+*******************************************************
+Instance 202 203
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 46584 46585
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 46584 46585
+*******************************************************
+Instance 233 234
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 46818 46819
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 46818 46819
+*******************************************************
+Instance 110 111
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 46929 46930
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 46929 46930
+*******************************************************
+Instance 110 111
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 47040 47041
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 47040 47041
+*******************************************************
+Instance 219 220
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 47260 47261
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 47260 47261
+*******************************************************
+Instance 369 370
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 47630 47631
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 47630 47631
+*******************************************************
+Instance 173 174
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 47804 47805
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 47804 47805
+*******************************************************
+Instance 66 67
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 47871 47872
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 47871 47872
+*******************************************************
+Instance 21 22
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 47893 47894
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 47893 47894
+*******************************************************
+Instance 156 157
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 48050 48051
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 48050 48051
+*******************************************************
+Instance 29 30
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 48080 48081
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 48080 48081
+*******************************************************
+Instance 322 323
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 48403 48404
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 48403 48404
+*******************************************************
+Instance 189 190
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 48593 48594
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 48593 48594
+*******************************************************
+Instance 85 86
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 48679 48680
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 48679 48680
+*******************************************************
+Instance 94 95
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 48774 48775
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 48774 48775
+*******************************************************
+Instance 452 453
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 49227 49228
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 49227 49228
+*******************************************************
+Instance 19 20
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 49247 49248
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 49247 49248
+*******************************************************
+Instance 14 15
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 49262 49263
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 49262 49263
+*******************************************************
+Instance 81 82
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 49344 49345
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 49344 49345
+*******************************************************
+Instance 39 40
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 49384 49385
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 49384 49385
+*******************************************************
+Instance 269 270
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 49654 49655
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 49654 49655
+*******************************************************
+Instance 316 317
+Para: S 35 4 4
+Inst: S 82 115 115
+Inst: D 85 49971 49972
+Inst: S 87 0 0
+Load: SubSequence 95 1 1
+Load: SubSequence 108 49971 49972
+*******************************************************

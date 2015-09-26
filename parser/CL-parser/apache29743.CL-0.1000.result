@@ -1,0 +1,26 @@
+Total Load: 553383
+Total Instruction: 0
+Total Parameter: 6
+Total Exeuction: 6
+
+Instance 12947 12948
+Para: S 911 31727040 31727040
+Load: EditDistance 291 12948 12949 1 1 1 12948 
+Load: SubSequence 293 12948 12949
+Load: EditDistance 298 51788 51792 4 4 4 51788 
+Load: EditDistance 311 12947 12948 1 1 1 12947 
+*******************************************************
+Instance 183 184
+Para: S 911 31727040 31727040
+Load: EditDistance 291 13132 13133 1 1 1 13132 
+Load: SubSequence 293 13132 13133
+Load: EditDistance 298 52524 52528 4 4 4 52524 
+Load: EditDistance 311 13131 13132 1 1 1 13131 
+*******************************************************
+Instance 315 316
+Para: S 911 31727040 31727040
+Load: EditDistance 291 13448 13449 1 1 1 13448 
+Load: SubSequence 293 13448 13449
+Load: EditDistance 298 53788 53792 4 4 4 53788 
+Load: EditDistance 311 13447 13448 1 1 1 13447 
+*******************************************************
