@@ -124,7 +124,7 @@ char * InitMemHooks()
 	}
 
 	char * pcBuffer = (char *)mmap(0, BUFFERSIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-	printf("%ld\n", (long)pcBuffer);
+	//printf("%ld\n", (long)pcBuffer);
 	return pcBuffer;
 }
 
