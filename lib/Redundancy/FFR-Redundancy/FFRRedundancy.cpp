@@ -151,6 +151,7 @@ void FFRRedundancy::DependenceAnalysis(set<Value *> & setDependingValues, Functi
 
 	for(; itStoreSetBegin != itStoreSetEnd; itStoreSetBegin ++)
 	{
+		//(*itStoreSetBegin)->dump();
 		Function * pContain = (*itStoreSetBegin)->getParent()->getParent();
 
 		set<Value *>::iterator itValSetBegin   = this->IPD->StartFuncValueDependenceMappingMappingMapping[pFunction][pContain][*itStoreSetBegin].begin();
@@ -333,7 +334,7 @@ bool FFRRedundancy::runOnModule(Module& M)
 
 	DependenceAnalysis(setValue, pFunction);
 
-	PruneDependenceResult(setValue, pFunction);
+	//PruneDependenceResult(setValue, pFunction);
 
 	set<Value *>::iterator itSetBegin = setValue.begin();
 	set<Value *>::iterator itSetEnd   = setValue.end();

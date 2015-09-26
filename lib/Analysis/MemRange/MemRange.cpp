@@ -95,9 +95,13 @@ void MemRange::DumpInstPaddingInfo()
 
 			if(this->LoadArrayAccessMapping.find(pLoad) != this->LoadArrayAccessMapping.end())
 			{
-				Loop * pCurrentLoop = this->LI->getLoopFor(pLoad->getParent());
-				const SCEV * pTripCounter = CalculateLoopTripCounter(pCurrentLoop, this->SE);
 				errs() << "//---Array Access: \n";
+				/*
+				Loop * pCurrentLoop = this->LI->getLoopFor(pLoad->getParent());
+
+				
+				const SCEV * pTripCounter = CalculateLoopTripCounter(pCurrentLoop, this->SE);
+				
 
 				if(pTripCounter != NULL)
 				{
@@ -124,6 +128,7 @@ void MemRange::DumpInstPaddingInfo()
 						}
 					}
 				}
+				*/
 
 				if(this->LoadStrideMapping.find(pLoad) != this->LoadStrideMapping.end() )
 				{
@@ -188,6 +193,101 @@ void MemRange::DumpInstPaddingInfo()
 	}
 }
 
+bool MemRange::SkipLoad(Loop * pLoop, LoadInst * pLoad)
+{
+	BasicBlock * pContain = pLoad->getParent();
+	BasicBlock * pHeader = pLoop->getHeader();
+
+	if(pContain == pHeader)
+	{
+		return false;
+	}
+
+	bool bFlag = false;
+
+	for(pred_iterator PI = pred_begin(pContain), PE = pred_end(pContain); PI != PE; ++PI)
+	{
+		if(*PI == pHeader)
+		{
+			bFlag = true;
+			break;
+		}
+	}
+
+	if(bFlag)
+	{
+		if(BranchInst * pBranch = dyn_cast<BranchInst>(pHeader->getTerminator()))
+		{
+			if(!pBranch->isConditional())
+			{
+				return false;
+			}
+
+			BasicBlock * pSuccess = NULL;
+
+			for(unsigned i = 0; i < pBranch->getNumSuccessors(); i ++ )
+			{
+				if(pBranch->getSuccessor(i) != pContain )
+				{
+					pSuccess = pBranch->getSuccessor(i);
+					break;
+				}
+			}
+
+			if(pSuccess != NULL)
+			{
+				if(BranchInst * pBranch2 = dyn_cast<BranchInst>(pSuccess->getTerminator()))
+				{
+					if(pBranch2->isConditional())
+					{
+						if(PHINode * pPHI = dyn_cast<PHINode>(pBranch2->getCondition()))
+						{
+							if(pPHI->getParent() == pSuccess)
+							{
+								if(ConstantInt * pConstant = dyn_cast<ConstantInt>(pPHI->getIncomingValue(pPHI->getBasicBlockIndex(pHeader))))
+								{
+									if(pConstant->isZero())
+									{
+										if(!pLoop->contains(pBranch2->getSuccessor(1)))
+										{
+											return false;
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+
+	set<BasicBlock *> setBackEdgeBlock;
+
+	for(pred_iterator PI = pred_begin(pHeader), PE = pred_end(pHeader); PI != PE; ++PI)
+	{
+		if(pLoop->contains(*PI))
+		{
+			setBackEdgeBlock.insert(*PI);
+		}
+	}
+
+	set<BasicBlock *>::iterator itSetBegin = setBackEdgeBlock.begin();
+	set<BasicBlock *>::iterator itSetEnd   = setBackEdgeBlock.end();
+
+	for(; itSetBegin != itSetEnd; itSetBegin ++ )
+	{
+		if(!this->DT->dominates(pContain, *itSetBegin))
+		{			
+			return true;
+		}
+	}
+
+	return false;
+}
+
+
 
 void MemRange::AnalyzeMonitoredLoad(Loop * pLoop)
 {	
@@ -220,39 +320,16 @@ void MemRange::AnalyzeMonitoredLoad(Loop * pLoop)
 	
 	for(; itLoadBegin != itLoadEnd; itLoadBegin ++)
 	{
-		//(*itLoadBegin)->dump();
+		
 		Loop * pCurrentLoop = this->LI->getLoopFor((*itLoadBegin)->getParent());
 
-		BasicBlock * Header = pCurrentLoop->getHeader();
-		BasicBlock * pContain = (*itLoadBegin)->getParent();
-		set<BasicBlock *> setBackEdgeBlock;
-
-		for(pred_iterator PI = pred_begin(Header), PE = pred_end(Header); PI != PE; ++PI)
-		{
-			if(pCurrentLoop->contains(*PI))
-			{
-				setBackEdgeBlock.insert(*PI);
-			}
-		}
-
-		set<BasicBlock *>::iterator itSetBegin = setBackEdgeBlock.begin();
-		set<BasicBlock *>::iterator itSetEnd   = setBackEdgeBlock.end();
-
-		bool bFlag = false;
-
-		for(; itSetBegin != itSetEnd; itSetBegin ++ )
-		{
-			if(!this->DT->dominates(pContain, *itSetBegin))
-			{
-				bFlag = true;
-				break;
-			}
-		}
-
-		if(bFlag)
+		if(SkipLoad(pCurrentLoop, (*itLoadBegin)))
 		{
 			continue;
 		}
+
+
+		//(*itLoadBegin)->dump();
 
 		if(BeArrayAccess(pCurrentLoop, *itLoadBegin, this->SE, this->DL))
 		{
@@ -266,7 +343,6 @@ void MemRange::AnalyzeMonitoredLoad(Loop * pLoop)
 			}
 
 			this->LoadArrayAccessMapping[*itLoadBegin] = vecResult;
-
 		}
 	}
 }

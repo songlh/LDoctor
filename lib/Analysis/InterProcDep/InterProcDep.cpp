@@ -1976,6 +1976,7 @@ void InterProcDep::InterProcDependenceAnalysis()
 
 	for(; itSetFuncBegin != itSetFuncEnd; itSetFuncBegin ++ )
 	{
+		errs() << (*itSetFuncBegin)->getName() << "\n";
 		NoneRecursiveDependenceAnalysis(*itSetFuncBegin);
 	}
 
@@ -1985,6 +1986,7 @@ void InterProcDep::InterProcDependenceAnalysis()
 
 	for(; itSetFuncBegin != itSetFuncEnd; itSetFuncBegin ++ )
 	{
+		errs() << (*itSetFuncBegin)->getName() << "\n";
 		InfeasiblePathDependenceAnalysis(*itSetFuncBegin);
 	}
 }

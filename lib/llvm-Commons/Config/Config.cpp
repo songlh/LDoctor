@@ -83,6 +83,7 @@ bool PossibleArrayAccess(vector<string> & vecFeatures, vector< vector<pair<int, 
 
 	for(size_t i = 0; i < vecFeatures.size(); i ++ )
 	{
+		//errs() << vecFeatures[i] << "\n";
 		if(vecFeatures[i].find("//---Array Access") == 0 )
 		{
 			bArray = true;

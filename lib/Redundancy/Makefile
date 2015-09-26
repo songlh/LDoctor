@@ -8,6 +8,6 @@ LEVEL=../..
 #
 # List all of the subdirectories that we will compile.
 #
-DIRS=CI-Redundancy CL-Redundancy FFR-Redundancy SysC-Redundancy
+DIRS=CI-Redundancy CL-Redundancy FFR-Redundancy SysC-Redundancy Recommend
 
 include $(LEVEL)/Makefile.common

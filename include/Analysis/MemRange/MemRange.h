@@ -20,6 +20,7 @@ struct MemRange: public ModulePass
 
 private:
 
+	bool SkipLoad(Loop * pLoop, LoadInst * pLoad);
 	//void IndentifyMonitoredLoad(Loop * pLoop);
 	void AnalyzeMonitoredLoad(Loop * pLoop);
 	void DumpInstPaddingInfo();

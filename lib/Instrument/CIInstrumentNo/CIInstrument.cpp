@@ -1265,6 +1265,8 @@ void CrossInterationInstrument::UpdateExitBlock(Function * pFunction, set<BasicB
 void CrossInterationInstrument::AddHooksToLoop(vector<Instruction *> & vecInst, ValueToValueMapTy & VMap, ValueToValueMapTy & VCalleeMap, map<Function *, set<Instruction *> > & FuncCallSiteMapping)
 {
 	//add delimiter
+
+
 	InlineHookDelimit(this->pHeader->getFirstInsertionPt());
 
 	vector<Instruction *>::iterator itVecBegin = vecInst.begin();
@@ -1303,12 +1305,16 @@ void CrossInterationInstrument::AddHooksToLoop(vector<Instruction *> & vecInst, 
 
 		Function * clonedFunction = cast<Function>(FuncIt->second);
 
+
+
 		set<Instruction *>::iterator itSetInstBegin = itMapBegin->second.begin();
 		set<Instruction *>::iterator itSetInstEnd   = itMapBegin->second.end();
 
 		for(; itSetInstBegin != itSetInstEnd; itSetInstBegin ++ )
 		{
 			ValueToValueMapTy::iterator It = VMap.find(*itSetInstBegin);
+
+
 
 			if(It != VMap.end())
 			{
@@ -1360,7 +1366,7 @@ void CrossInterationInstrument::CloneLoopBody(Loop * pLoop, vector<Instruction *
 	
 	ValueToValueMapTy VMap;
 	
-	VMap[pHeader] = pHeader;
+	//VMap[pHeader] = pHeader;
 
 	SmallVector<BasicBlock *, 4> ExitBlocks;
 	set<BasicBlock *> setExitBlocks;

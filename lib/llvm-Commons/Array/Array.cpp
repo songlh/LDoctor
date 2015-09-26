@@ -478,6 +478,7 @@ void AnalyzeArrayAccess(LoadInst * pLoad, Loop * pLoop, ScalarEvolution * SE, Da
 
 		Instruction * pIndexInst = cast<Instruction>(pPointerInst->getOperand(1));
 
+
 		for(BasicBlock::iterator II = pHeader->begin(); II != pHeader->end(); II ++ )
 		{
 			if(PHINode * pPHI = dyn_cast<PHINode>(II))

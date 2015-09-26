@@ -174,6 +174,12 @@ unsigned long EditDistance(vector<Type> & vecA, vector<Type> & vecB )
 {
 	unsigned long * d[2];
 
+	errs() << vecA.size() << " " << vecB.size() << "\n";
+	if(vecA.size() > 500000 && vecB.size() > 500000)
+	{
+		return 0;
+	}
+
 	d[0] = (unsigned long *)malloc(sizeof(unsigned long) * (vecB.size()+1 ));
     d[1] = (unsigned long *)malloc(sizeof(unsigned long) * (vecB.size()+1 ));
 
@@ -744,9 +750,13 @@ void CLCAL::BuildIDInstMapping(Function * pFunction)
 				ConstantInt *CI = dyn_cast<ConstantInt>(Node->getOperand(0));
 				assert(CI);
 			
+				//errs() << CI->getZExtValue() << "\n";
+
 				if(this->MonitoredElems.MonitoredInst.find(CI->getZExtValue()) != this->MonitoredElems.MonitoredInst.end())
 				{
 					this->IDInstMapping[CI->getZExtValue()] = II;
+
+					
 				}
 			}
 		}
@@ -798,6 +808,8 @@ void CLCAL::BuildIDInstMapping(Function * pFunction)
 		IDArgMapping[index] = AB;
 		index ++;
 	}
+
+	//exit(0);
 
 }
 
@@ -889,6 +901,7 @@ void CLCAL::CompMemSequence(map<Value *, double> & ValueScoreMapping)
 		this->setLength1.insert(this->IDValueMapping1[index].size());
 		this->setLength2.insert(this->IDValueMapping2[index].size());
 
+		//errs() << index << ":" << IDMemMapping1[index].size() << " " << IDMemMapping2[index].size() << "\n";
 		ValueScoreMapping[pInst] = CompTwoSequence(IDMemMapping1[index], IDMemMapping2[index]);
 	}
 }
@@ -911,14 +924,17 @@ void CLCAL::CompValueSequence(map<Value *, double> & ValueScoreMapping)
 			continue;
 		}
 
+
 		Instruction * pInst = IDInstMapping[index];
+
+		//errs() << index ;
+		//pInst->dump();
 
 		if(isa<MemIntrinsic>(pInst))
 		{
 			continue;
 		}
 
-		
 
 		if(this->pLoop->contains(pInst->getParent()))
 		{
@@ -952,7 +968,8 @@ void CLCAL::CompValueSequence(map<Value *, double> & ValueScoreMapping)
 			continue;
 		}
 
-		
+		//errs() << index ;
+		//pInst->dump();
 
 		if(this->pLoop->contains(pInst->getParent()))
 		{
@@ -1013,6 +1030,7 @@ void CLCAL::CompValueSequence(map<Value *, double> & ValueScoreMapping)
 		this->setLength1.insert(Seq1.size());
 		this->setLength2.insert(Seq2.size());
 
+		//errs() << index << ":" << Seq1.size() << " " << Seq2.size() << "\n";
 		ValueScoreMapping[pInst] = CompTwoSequence(Seq1, Seq2);
 	}
 
@@ -1291,10 +1309,15 @@ void CLCAL::CompSkipLoad(map<Value *, double > & ValueScoreMapping, set<Value *>
 			}
 		}
 
+		if(SeqA.size() == 0 && SeqB.size() == 0)
+		{
+			continue;
+		}
+
 		this->setLength1.insert(SeqA.size());
 		this->setLength2.insert(SeqB.size());
 		
-
+		
 		ValueScoreMapping[pLoad] = CompTwoSequence(SeqA, SeqB);
 	}
 
@@ -1672,7 +1695,7 @@ bool CLCAL::runOnModule(Module& M)
 
 	while(iIndex + 1 < vecLogRecord.size() )
 	{
-		errs() << iIndex << " " << count << "\n";
+		errs() << iIndex << " " << count << " " <<  vecLogRecord[iIndex].size() << " " << vecLogRecord[iIndex+1].size() << "\n";
 		count += CompInstancePair(vecLogRecord[iIndex], vecLogRecord[iIndex+1]);
 		iIndex += 2;
 		

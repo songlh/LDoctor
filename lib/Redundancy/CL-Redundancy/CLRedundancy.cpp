@@ -377,6 +377,8 @@ void CrossLoopRedundancy::CollectSideEffectInstruction(Loop * pLoop, set<Instruc
 			}
 		}
 	}
+
+
 }
 
 
@@ -586,6 +588,18 @@ void CrossLoopRedundancy::CollectSideEffectInstructionInsideLoop(Loop * pLoop, s
 
 	}
 
+	/*
+
+	set<Instruction *>::iterator itInstSetBegin = setSideEffectInst.begin();
+	set<Instruction *>::iterator itInstSetEnd = setSideEffectInst.end();
+
+	for(; itInstSetBegin != itInstSetEnd; itInstSetBegin ++ )
+	{
+		PrintInstructionInfo(*itInstSetBegin);
+	}
+
+	exit(0);
+	*/
 }
 
 void CrossLoopRedundancy::CalDependenceForSEInst(Loop * pLoop, set<Instruction *> & SEInst, set<Value *> & setDependentValue, ControlDependenceGraphBase & CDG)
@@ -1465,6 +1479,8 @@ bool CrossLoopRedundancy::runOnModule(Module& M)
 		ParseLibraryFunctionFile(strLibrary, &M, this->LibraryTypeMapping);
 	}
 
+	errs() << "enter runOnModule\n";
+
 	this->pDL = &getAnalysis<DataLayout>();
 
 	Function * pInnerFunction = SearchFunctionByName(M, strInnerFileName, strInnerFuncName, uInnerSrcLine);
@@ -1514,6 +1530,8 @@ bool CrossLoopRedundancy::runOnModule(Module& M)
 	this->IPD->InitlizeStartFunctionSet(this->setCallee);
 	this->IPD->LibraryTypeMapping = this->LibraryTypeMapping;
 	this->IPD->InterProcDependenceAnalysis();
+
+	errs() << "finish dependence analysis\n";
 
 	set<Value *> setValue;
 
